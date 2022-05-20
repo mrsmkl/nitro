@@ -4,11 +4,12 @@
 use std::convert::TryFrom;
 
 use crate::{binary::FloatType, utils::Bytes32};
-use digest::Digest;
+// use digest::Digest;
 use eyre::{bail, Result};
 use serde::{Deserialize, Serialize};
 use sha3::Keccak256;
 use wasmparser::{FuncType, Type};
+use crate::Hasher;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, Serialize, Deserialize)]
 #[repr(u8)]
@@ -170,11 +171,15 @@ impl Value {
     }
 
     pub fn hash(self) -> Bytes32 {
-        let mut h = Keccak256::new();
-        h.update(b"Value:");
-        h.update(&[self.ty() as u8]);
-        h.update(self.contents_for_proof());
-        h.finalize().into()
+        self.gen_hash::<Bytes32, Keccak256>()
+    }
+
+    pub fn gen_hash<T, H: Hasher<T>>(self) -> T {
+        let mut h = H::make();
+        h.update_title(b"Value:");
+        h.update_u32(self.ty() as u32);
+        h.update_bytes32(&self.contents_for_proof());
+        h.result()
     }
 
     pub fn default_of_type(ty: ArbValueType) -> Value {

@@ -10,6 +10,7 @@ pub trait Hasher<T> {
     fn update_usize(&mut self, arg: usize);
     fn update_u32(&mut self, arg: u32);
     fn update_vec(&mut self, arg: &[u8]);
+    fn update_bytes32(&mut self, arg: &Bytes32);
     fn update_hash(&mut self, a: &T);
     fn result(&mut self) -> T;
 }
@@ -31,6 +32,9 @@ impl Hasher<Bytes32> for Keccak256 {
         self.update(Bytes32::from(arg))
     }
     fn update_hash(&mut self, arg: &Bytes32) {
+        self.update(arg)
+    }
+    fn update_bytes32(&mut self, arg: &Bytes32) {
         self.update(arg)
     }
     fn update_vec(&mut self, arg: &[u8]) {
