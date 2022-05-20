@@ -7,9 +7,10 @@ use crate::{binary::FloatType, utils::Bytes32};
 // use digest::Digest;
 use eyre::{bail, Result};
 use serde::{Deserialize, Serialize};
-use sha3::Keccak256;
+// use sha3::Keccak256;
 use wasmparser::{FuncType, Type};
 use crate::Hasher;
+use crate::Keccak;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, Serialize, Deserialize)]
 #[repr(u8)]
@@ -171,7 +172,7 @@ impl Value {
     }
 
     pub fn hash(self) -> Bytes32 {
-        self.gen_hash::<Bytes32, Keccak256>()
+        self.gen_hash::<Bytes32, Keccak>()
     }
 
     pub fn gen_hash<T, H: Hasher<T>>(self) -> T {
@@ -235,7 +236,7 @@ impl FunctionType {
         h.result()
     }
     pub fn hash(&self) -> Bytes32 {
-        self.gen_hash::<Bytes32, Keccak256>()
+        self.gen_hash::<Bytes32, Keccak>()
     }
 }
 

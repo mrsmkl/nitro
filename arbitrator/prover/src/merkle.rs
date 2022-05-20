@@ -4,8 +4,9 @@
 use crate::utils::Bytes32;
 // use digest::Digest;
 // use rayon::prelude::*;
-use sha3::Keccak256;
+// use sha3::Keccak256;
 use std::convert::TryFrom;
+use crate::Keccak;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MerkleType {
@@ -60,7 +61,7 @@ fn gen_hash_node<T, H: Hasher<T>>(ty: MerkleType, a: T, b: T) -> T {
     h.result()
 }
 
-pub type Merkle = GenMerkle<Bytes32, Keccak256>;
+pub type Merkle = GenMerkle<Bytes32, Keccak>;
 
 impl<T: Debug + Clone + PartialEq + Eq + Default + Into<Vec<u8>>, H: Hasher<T>> Default for GenMerkle<T, H> {
     fn default() -> Self {

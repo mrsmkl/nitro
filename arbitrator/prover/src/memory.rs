@@ -9,10 +9,11 @@ use crate::{
 // use digest::Digest;
 // use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
-use sha3::Keccak256;
+// use sha3::Keccak256;
 use std::{borrow::Cow, convert::TryFrom};
 use core::fmt::Debug;
 use crate::Hasher;
+use crate::Keccak;
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct GenMemory<T: Debug + Clone + PartialEq + Eq + Default + Into<Vec<u8>>, H: Hasher<T>> {
@@ -47,7 +48,7 @@ fn div_round_up(num: usize, denom: usize) -> usize {
     res
 }
 
-pub type Memory = GenMemory<Bytes32, Keccak256>;
+pub type Memory = GenMemory<Bytes32, Keccak>;
 
 impl<T: Debug + Clone + PartialEq + Eq + Default + Into<Vec<u8>>, H: Hasher<T>> GenMemory<T, H> {
     pub const LEAF_SIZE: usize = 32;

@@ -4,7 +4,7 @@
 use crate::{
     binary::{parse, FloatInstruction, Local, NameCustomSection, WasmBinary},
     host::get_host_impl,
-    memory::Memory,
+    memory::{GenMemory,Memory},
     merkle::{Merkle, MerkleType, GenMerkle},
     reinterpret::{ReinterpretAsSigned, ReinterpretAsUnsigned},
     utils::{file_bytes, Bytes32, CBytes, DeprecatedTableType},
@@ -32,11 +32,11 @@ use std::{
     sync::Arc,
 };
 use wasmparser::{DataKind, ElementItem, ElementKind, ExternalKind, Operator, TableType, TypeRef};
-use crate::Hasher;
+use crate::{Keccak,Hasher};
 use core::fmt::Debug;
 
 fn hash_call_indirect_data(table: u32, ty: &FunctionType) -> Bytes32 {
-    gen_hash_call_indirect_data::<Bytes32,Keccak256>(table, ty)
+    gen_hash_call_indirect_data::<Bytes32,Keccak>(table, ty)
 }
 
 fn gen_hash_call_indirect_data<T, H: Hasher<T>>(table: u32, ty: &FunctionType) -> T {
@@ -70,7 +70,7 @@ pub struct GenFunction<T: Debug + Clone + PartialEq + Eq + Default + Into<Vec<u8
     local_types: Vec<ArbValueType>,
 }
 
-pub type Function = GenFunction<Bytes32, Keccak256>;
+pub type Function = GenFunction<Bytes32, Keccak>;
 
 impl <T: Debug + Clone + PartialEq + Eq + Default + Into<Vec<u8>>, H: Hasher<T>> GenFunction<T,H> {
     pub fn new<F: FnOnce(&mut Vec<Instruction>) -> Result<()>>(
@@ -158,19 +158,21 @@ struct StackFrame {
 
 impl StackFrame {
     fn hash(&self) -> Bytes32 {
-        let mut h = Keccak256::new();
-        h.update("Stack frame:");
-        h.update(&self.return_ref.hash());
-        h.update(
-            Merkle::new(
-                MerkleType::Value,
-                self.locals.iter().map(|v| v.hash()).collect(),
-            )
-            .root(),
+        self.gen_hash::<Bytes32,Keccak>()
+    }
+
+    fn gen_hash<T: Debug + Clone + PartialEq + Eq + Default + Into<Vec<u8>>, H: Hasher<T>>(&self) -> T {
+        let mut h = H::make();
+        h.update_title(b"Stack frame:");
+        h.update_hash(&self.return_ref.gen_hash::<T,H>());
+        let merkle : GenMerkle<T,H> = GenMerkle::new(
+            MerkleType::Value,
+            self.locals.iter().map(|v| v.gen_hash::<T,H>()).collect(),
         );
-        h.update(self.caller_module.to_be_bytes());
-        h.update(self.caller_module_internals.to_be_bytes());
-        h.finalize().into()
+        h.update_hash(&merkle.root());
+        h.update_u32(self.caller_module);
+        h.update_u32(self.caller_module_internals);
+        h.result()
     }
 
     fn serialize_for_proof(&self) -> Vec<u8> {
@@ -206,39 +208,44 @@ impl Default for TableElement {
 
 impl TableElement {
     fn hash(&self) -> Bytes32 {
-        let mut h = Keccak256::new();
-        h.update("Table element:");
-        h.update(self.func_ty.hash());
-        h.update(self.val.hash());
-        h.finalize().into()
+        self.gen_hash::<Bytes32,Keccak>()
+    }
+    fn gen_hash<T, H: Hasher<T>>(&self) -> T {
+        let mut h = H::make();
+        h.update_title(b"Table element:");
+        h.update_hash(&self.func_ty.gen_hash::<T,H>());
+        h.update_hash(&self.val.gen_hash::<T,H>());
+        h.result()
     }
 }
 
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
-struct Table {
+struct GenTable<T: Debug + Clone + PartialEq + Eq + Default + Into<Vec<u8>>, H: Hasher<T>> {
     #[serde_as(as = "FromInto<DeprecatedTableType>")]
     ty: TableType,
     elems: Vec<TableElement>,
     #[serde(skip)]
-    elems_merkle: Merkle,
+    elems_merkle: GenMerkle<T,H>,
 }
 
-impl Table {
+type Table = GenTable<Bytes32, Keccak>;
+
+impl <T: Debug + Clone + PartialEq + Eq + Default + Into<Vec<u8>>, H: Hasher<T>> GenTable<T,H> {
     fn serialize_for_proof(&self) -> Result<Vec<u8>> {
         let mut data = vec![ArbValueType::try_from(self.ty.element_type)?.serialize()];
         data.extend(&(self.elems.len() as u64).to_be_bytes());
-        data.extend(self.elems_merkle.root());
+        data.extend(self.elems_merkle.root().into());
         Ok(data)
     }
 
-    fn hash(&self) -> Result<Bytes32> {
-        let mut h = Keccak256::new();
-        h.update("Table:");
-        h.update(&[ArbValueType::try_from(self.ty.element_type)?.serialize()]);
-        h.update(&(self.elems.len() as u64).to_be_bytes());
-        h.update(self.elems_merkle.root());
-        Ok(h.finalize().into())
+    fn hash(&self) -> Result<T> {
+        let mut h = H::make();
+        h.update_title(b"Table:");
+        h.update_vec(&[ArbValueType::try_from(self.ty.element_type)?.serialize()]);
+        h.update_usize(self.elems.len());
+        h.update_hash(&self.elems_merkle.root());
+        Ok(h.result())
     }
 }
 
@@ -258,6 +265,7 @@ struct AvailableImport {
     func: u32,
 }
 
+/*
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 struct Module {
     globals: Vec<Value>,
@@ -275,9 +283,30 @@ struct Module {
     start_function: Option<u32>,
     func_types: Arc<Vec<FunctionType>>,
     exports: Arc<HashMap<String, u32>>,
+}*/
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+struct GenModule<T: serde::Serialize + Debug + Clone + PartialEq + Eq + Default + Into<Vec<u8>>, H: Hasher<T>> {
+    globals: Vec<Value>,
+    memory: GenMemory<T,H>,
+    tables: Vec<GenTable<T,H>>,
+    #[serde(skip)]
+    tables_merkle: GenMerkle<T,H>,
+    funcs: Arc<Vec<Function>>,
+    #[serde(skip)]
+    funcs_merkle: Arc<GenMerkle<T,H>>,
+    types: Arc<Vec<FunctionType>>,
+    internals_offset: u32,
+    names: Arc<NameCustomSection>,
+    host_call_hooks: Arc<Vec<Option<(String, String)>>>,
+    start_function: Option<u32>,
+    func_types: Arc<Vec<FunctionType>>,
+    exports: Arc<HashMap<String, u32>>,
 }
 
-impl Module {
+type Module = GenModule<Bytes32, Keccak>;
+
+impl<T: Debug + Clone + PartialEq + Eq + Default + Into<Vec<u8>> + Serialize, H: Hasher<T>> GenModule<T,H> {
     fn from_binary(
         bin: &WasmBinary,
         available_imports: &HashMap<String, AvailableImport>,
@@ -547,24 +576,22 @@ impl Module {
         })
     }
 
-    fn hash(&self) -> Bytes32 {
-        let mut h = Keccak256::new();
-        h.update("Module:");
-        h.update(
-            Merkle::new(
-                MerkleType::Value,
-                self.globals.iter().map(|v| v.hash()).collect(),
-            )
-            .root(),
+    fn hash(&self) -> T {
+        let mut h = H::make();
+        h.update_title(b"Module:");
+        let merkle : GenMerkle<T,H> = GenMerkle::new(
+            MerkleType::Value,
+            self.globals.iter().map(|v| v.gen_hash::<T,H>()).collect(),
         );
-        h.update(self.memory.hash());
-        h.update(self.tables_merkle.root());
-        h.update(self.funcs_merkle.root());
-        h.update(self.internals_offset.to_be_bytes());
-        h.finalize().into()
+        h.update_hash(&merkle.root());
+        h.update_hash(&self.memory.hash());
+        h.update_hash(&self.tables_merkle.root());
+        h.update_hash(&self.funcs_merkle.root());
+        h.update_u32(self.internals_offset);
+        h.result()
     }
 
-    fn serialize_for_proof(&self, mem_merkle: &Merkle) -> Vec<u8> {
+    fn serialize_for_proof(&self, mem_merkle: &GenMerkle<T,H>) -> Vec<u8> {
         let mut data = Vec::new();
 
         data.extend(
@@ -576,10 +603,10 @@ impl Module {
         );
 
         data.extend(self.memory.size().to_be_bytes());
-        data.extend(mem_merkle.root());
+        data.extend(mem_merkle.root().into());
 
-        data.extend(self.tables_merkle.root());
-        data.extend(self.funcs_merkle.root());
+        data.extend(self.tables_merkle.root().into());
+        data.extend(self.funcs_merkle.root().into());
 
         data.extend(self.internals_offset.to_be_bytes());
 

@@ -3,6 +3,14 @@
 
 #![allow(clippy::missing_safety_doc)] // We have a lot of unsafe ABI
 
+use serde::{Serialize, Deserialize};
+
+#[derive(Default, Clone, Debug, Serialize, Deserialize)]
+pub struct Keccak {
+    #[serde(skip)]
+    i: Keccak256
+}
+
 pub trait Hasher<T> {
     fn make() -> Self;
     fn update_title(&mut self, b: &[u8]);
@@ -15,33 +23,48 @@ pub trait Hasher<T> {
     fn result(&mut self) -> T;
 }
 
-impl Hasher<Bytes32> for Keccak256 {
+/*
+impl Default for Keccak {
+    fn default() -> Self {
+        panic!("Why?")
+    }
+}
+
+impl Clone for Keccak {
+    fn default(&self) -> Self {
+        panic!("Why?")
+    }
+}*/
+
+impl Hasher<Bytes32> for Keccak {
     fn make() -> Self {
-        Keccak256::new()
+        Keccak {
+            i: Keccak256::new()
+        }
     }
     fn update_title(&mut self, b: &[u8]) {
-        self.update(b)
+        self.i.update(b)
     }
     fn update_u64(&mut self, arg: u64) {
-        self.update(Bytes32::from(arg))
+        self.i.update(Bytes32::from(arg))
     }
     fn update_usize(&mut self, arg: usize) {
-        self.update(Bytes32::from(arg))
+        self.i.update(Bytes32::from(arg))
     }
     fn update_u32(&mut self, arg: u32) {
-        self.update(Bytes32::from(arg))
+        self.i.update(Bytes32::from(arg))
     }
     fn update_hash(&mut self, arg: &Bytes32) {
-        self.update(arg)
+        self.i.update(arg)
     }
     fn update_bytes32(&mut self, arg: &Bytes32) {
-        self.update(arg)
+        self.i.update(arg)
     }
     fn update_vec(&mut self, arg: &[u8]) {
-        self.update(arg)
+        self.i.update(arg)
     }
     fn result(&mut self) -> Bytes32 {
-        self.clone().finalize().into()
+        self.i.clone().finalize().into()
     }
 }
 

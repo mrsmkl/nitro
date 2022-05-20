@@ -10,10 +10,11 @@ use crate::{
 use eyre::{bail, ensure, Result};
 use fnv::FnvHashMap as HashMap;
 use serde::{Deserialize, Serialize};
-use sha3::Keccak256;
+// use sha3::Keccak256;
 use std::ops::{Add, AddAssign, Sub, SubAssign};
 use wasmparser::{BlockType, Operator};
 use crate::Hasher;
+use crate::Keccak;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum IRelOpType {
@@ -366,7 +367,7 @@ impl Instruction {
     }
 
     pub fn hash(self) -> Bytes32 {
-        self.gen_hash::<Bytes32, Keccak256>()
+        self.gen_hash::<Bytes32, Keccak>()
     }
 
     pub fn gen_hash<T, H: Hasher<T>>(self) -> T {
