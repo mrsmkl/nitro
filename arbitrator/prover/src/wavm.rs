@@ -6,13 +6,14 @@ use crate::{
     utils::Bytes32,
     value::{ArbValueType, FunctionType, IntegerValType},
 };
-use digest::Digest;
+// use digest::Digest;
 use eyre::{bail, ensure, Result};
 use fnv::FnvHashMap as HashMap;
 use serde::{Deserialize, Serialize};
 use sha3::Keccak256;
 use std::ops::{Add, AddAssign, Sub, SubAssign};
 use wasmparser::{BlockType, Operator};
+use crate::Hasher;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum IRelOpType {
@@ -365,11 +366,15 @@ impl Instruction {
     }
 
     pub fn hash(self) -> Bytes32 {
-        let mut h = Keccak256::new();
-        h.update(b"Instruction:");
-        h.update(self.opcode.repr().to_be_bytes());
-        h.update(self.get_proving_argument_data());
-        h.finalize().into()
+        self.gen_hash::<Bytes32, Keccak256>()
+    }
+
+    pub fn gen_hash<T, H: Hasher<T>>(self) -> T {
+        let mut h = H::make();
+        h.update_title(b"Instruction:");
+        h.update_u32(self.opcode.repr() as u32);
+        h.update_bytes32(&self.get_proving_argument_data());
+        h.result()
     }
 }
 

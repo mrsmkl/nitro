@@ -5,7 +5,7 @@ use crate::{
     binary::{parse, FloatInstruction, Local, NameCustomSection, WasmBinary},
     host::get_host_impl,
     memory::Memory,
-    merkle::{Merkle, MerkleType},
+    merkle::{Merkle, MerkleType, GenMerkle},
     reinterpret::{ReinterpretAsSigned, ReinterpretAsUnsigned},
     utils::{file_bytes, Bytes32, CBytes, DeprecatedTableType},
     value::{ArbValueType, FunctionType, IntegerValType, ProgramCounter, Value},
@@ -32,13 +32,19 @@ use std::{
     sync::Arc,
 };
 use wasmparser::{DataKind, ElementItem, ElementKind, ExternalKind, Operator, TableType, TypeRef};
+use crate::Hasher;
+use core::fmt::Debug;
 
 fn hash_call_indirect_data(table: u32, ty: &FunctionType) -> Bytes32 {
-    let mut h = Keccak256::new();
-    h.update("Call indirect:");
-    h.update(&(table as u64).to_be_bytes());
-    h.update(ty.hash());
-    h.finalize().into()
+    gen_hash_call_indirect_data::<Bytes32,Keccak256>(table, ty)
+}
+
+fn gen_hash_call_indirect_data<T, H: Hasher<T>>(table: u32, ty: &FunctionType) -> T {
+    let mut h = H::make();
+    h.update_title(b"Call indirect:");
+    h.update_u64(table as u64);
+    h.update_hash(&ty.gen_hash::<T,H>());
+    h.result()
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -56,21 +62,23 @@ pub fn argument_data_to_inbox(argument_data: u64) -> Option<InboxIdentifier> {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Function {
+pub struct GenFunction<T: Debug + Clone + PartialEq + Eq + Default + Into<Vec<u8>>, H: Hasher<T>> {
     code: Vec<Instruction>,
     ty: FunctionType,
     #[serde(skip)]
-    code_merkle: Merkle,
+    code_merkle: GenMerkle<T,H>,
     local_types: Vec<ArbValueType>,
 }
 
-impl Function {
+pub type Function = GenFunction<Bytes32, Keccak256>;
+
+impl <T: Debug + Clone + PartialEq + Eq + Default + Into<Vec<u8>>, H: Hasher<T>> GenFunction<T,H> {
     pub fn new<F: FnOnce(&mut Vec<Instruction>) -> Result<()>>(
         locals: &[Local],
         add_body: F,
         func_ty: FunctionType,
         module_types: &[FunctionType],
-    ) -> Result<Function> {
+    ) -> Result<Self> {
         let mut locals_with_params = func_ty.inputs.clone();
         locals_with_params.extend(locals.iter().map(|x| x.value));
 
@@ -107,24 +115,24 @@ impl Function {
             }
         }
 
-        Ok(Function::new_from_wavm(insts, func_ty, locals_with_params))
+        Ok(Self::new_from_wavm(insts, func_ty, locals_with_params))
     }
 
     fn new_from_wavm(
         code: Vec<Instruction>,
         ty: FunctionType,
         local_types: Vec<ArbValueType>,
-    ) -> Function {
+    ) -> Self {
         assert!(
             u32::try_from(code.len()).is_ok(),
             "Function instruction count doesn't fit in a u32",
         );
-        let code_merkle = Merkle::new(
+        let code_merkle = GenMerkle::new(
             MerkleType::Instruction,
-            code.par_iter().map(|i| i.hash()).collect(),
+            code.iter().map(|i| i.gen_hash::<T,H>()).collect(),
         );
 
-        Function {
+        GenFunction {
             code,
             ty,
             code_merkle,
@@ -132,11 +140,11 @@ impl Function {
         }
     }
 
-    fn hash(&self) -> Bytes32 {
-        let mut h = Keccak256::new();
-        h.update("Function:");
-        h.update(self.code_merkle.root());
-        h.finalize().into()
+    fn hash(&self) -> T {
+        let mut h = H::make();
+        h.update_title(b"Function:");
+        h.update_hash(&self.code_merkle.root());
+        h.result()
     }
 }
 

@@ -52,10 +52,6 @@ pub struct GenMerkle<T: Debug + Clone + PartialEq + Eq + Default + Into<Vec<u8>>
     hasher: PhantomData<H>
 }
 
-fn hash_node(ty: MerkleType, a: Bytes32, b: Bytes32) -> Bytes32 {
-    gen_hash_node::<Bytes32, Keccak256>(ty, a, b)
-}
-
 fn gen_hash_node<T, H: Hasher<T>>(ty: MerkleType, a: T, b: T) -> T {
     let mut h = H::make();
     h.update_title(ty.get_prefix());
