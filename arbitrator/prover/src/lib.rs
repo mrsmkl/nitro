@@ -12,7 +12,7 @@ pub struct Keccak {
     i: Keccak256
 }
 
-pub trait HashResult: Debug + Clone + PartialEq + Eq + Default + Into<Vec<u8>> + From<u32> {}
+pub trait HashResult: Debug + Clone + PartialEq + Eq + Default + Into<Vec<u8>> + From<u32> + Serialize + std::fmt::Display {}
 
 pub trait Hasher<T>: Clone + Default {
     fn make() -> Self;

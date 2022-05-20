@@ -287,7 +287,7 @@ struct Module {
 }*/
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-struct GenModule<T: Debug + Clone + PartialEq + Eq + Default + Into<Vec<u8>>, H: Hasher<T>> {
+struct GenModule<T: HashResult, H: Hasher<T>> {
     globals: Vec<Value>,
     memory: GenMemory<T,H>,
     tables: Vec<GenTable<T,H>>,
@@ -307,7 +307,7 @@ struct GenModule<T: Debug + Clone + PartialEq + Eq + Default + Into<Vec<u8>>, H:
 
 type Module = GenModule<Bytes32, Keccak>;
 
-impl<T: HashResult + Serialize, H: Hasher<T>> GenModule<T,H> {
+impl<T: HashResult, H: Hasher<T>> GenModule<T,H> {
     fn from_binary(
         bin: &WasmBinary,
         available_imports: &HashMap<String, AvailableImport>,
@@ -763,6 +763,7 @@ pub struct GenMachine<T: HashResult, H: Hasher<T>> {
     context: u64,
 }
 
+/*
 #[derive(Clone)]
 pub struct Machine {
     steps: u64, // Not part of machine hash
@@ -780,9 +781,9 @@ pub struct Machine {
     preimage_resolver: PreimageResolverWrapper,
     initial_hash: Bytes32,
     context: u64,
-}
+}*/
 
-// pub type Machine = GenMachine<Bytes32, Keccak>;
+pub type Machine = GenMachine<Bytes32, Keccak>;
 
 fn gen_hash_stack<T: HashResult, H: Hasher<T>, I>(stack: I, prefix: &[u8]) -> T
 where
@@ -935,9 +936,8 @@ pub fn get_empty_preimage_resolver() -> PreimageResolver {
 }
 
 
-impl <T: HashResult, H: Hasher<T>> GenMachine<T,H> {
+impl <T: HashResult  + serde::de::DeserializeOwned, H: Hasher<T> + serde::de::DeserializeOwned + Serialize> GenMachine<T,H> {
     pub const MAX_STEPS: u64 = 1 << 43;
-/*
     pub fn from_paths(
         library_paths: &[PathBuf],
         binary_path: &Path,
@@ -1044,7 +1044,7 @@ impl <T: HashResult, H: Hasher<T>> GenMachine<T,H> {
 
         // Shouldn't be necessary, but to safe, don't allow the main binary to import its own guest calls
         available_imports.retain(|_, i| i.module as usize != modules.len());
-        modules.push(GenModule::from_binary::<T,H>(
+        modules.push(GenModule::from_binary(
             &bin,
             &available_imports,
             &floating_point_impls,
@@ -1160,7 +1160,7 @@ impl <T: HashResult, H: Hasher<T>> GenMachine<T,H> {
         entrypoint_names
             .functions
             .insert(0, "wavm_entrypoint".into());
-        let entrypoint_funcs = vec![Function::new(
+        let entrypoint_funcs : Vec<GenFunction<T,H>> = vec![GenFunction::new(
             &[],
             |code| {
                 code.extend(entrypoint);
@@ -1171,12 +1171,12 @@ impl <T: HashResult, H: Hasher<T>> GenMachine<T,H> {
         )?];
         let entrypoint : GenModule<T,H> = GenModule {
             globals: Vec::new(),
-            memory: Memory::default(),
+            memory: GenMemory::default(),
             tables: Vec::new(),
-            tables_merkle: Merkle::default(),
-            funcs_merkle: Arc::new(Merkle::new(
+            tables_merkle: GenMerkle::default(),
+            funcs_merkle: Arc::new(GenMerkle::new(
                 MerkleType::Function,
-                entrypoint_funcs.iter().map(Function::hash).collect(),
+                entrypoint_funcs.iter().map(GenFunction::hash).collect(),
             )),
             funcs: Arc::new(entrypoint_funcs),
             types: Arc::new(entrypoint_types),
@@ -1199,11 +1199,11 @@ impl <T: HashResult, H: Hasher<T>> GenMachine<T,H> {
             for table in module.tables.iter_mut() {
                 table.elems_merkle = GenMerkle::new(
                     MerkleType::TableElement,
-                    table.elems.iter().map(TableElement::hash).collect(),
+                    table.elems.iter().map(TableElement::gen_hash::<T,H>).collect(),
                 );
             }
 
-            let tables_hashes: Result<_, _> = module.tables.iter().map(Table::hash).collect();
+            let tables_hashes: Result<_, _> = module.tables.iter().map(GenTable::hash).collect();
             module.tables_merkle = GenMerkle::new(MerkleType::Table, tables_hashes?);
 
             if always_merkleize {
@@ -1218,7 +1218,7 @@ impl <T: HashResult, H: Hasher<T>> GenMachine<T,H> {
             ));
         }
 
-        let mut mach = Machine {
+        let mut mach : Self = GenMachine {
             status: MachineStatus::Running,
             steps: 0,
             value_stack: vec![Value::RefNull, Value::I32(0), Value::I32(0)],
@@ -1232,42 +1232,41 @@ impl <T: HashResult, H: Hasher<T>> GenMachine<T,H> {
             stdio_output: Vec::new(),
             inbox_contents,
             preimage_resolver: PreimageResolverWrapper::new(preimage_resolver),
-            initial_hash: Bytes32::default(),
+            initial_hash: T::default(),
             context: 0,
         };
         mach.initial_hash = mach.hash();
         Ok(mach)
-    }*/
+    }
 
-    /*
-    pub fn new_from_wavm(wavm_binary: &Path) -> Result<Machine> {
+    pub fn new_from_wavm(wavm_binary: &Path) -> Result<Self> {
         let f = BufReader::new(File::open(wavm_binary)?);
         let decompressor = brotli2::read::BrotliDecoder::new(f);
-        let mut modules: Vec<Module> = bincode::deserialize_from(decompressor)?;
+        let mut modules: Vec<GenModule<T,H>> = bincode::deserialize_from(decompressor)?;
         for module in modules.iter_mut() {
             for table in module.tables.iter_mut() {
-                table.elems_merkle = Merkle::new(
+                table.elems_merkle = GenMerkle::new(
                     MerkleType::TableElement,
-                    table.elems.iter().map(TableElement::hash).collect(),
+                    table.elems.iter().map(TableElement::gen_hash::<T,H>).collect(),
                 );
             }
-            let tables: Result<_> = module.tables.iter().map(Table::hash).collect();
-            module.tables_merkle = Merkle::new(MerkleType::Table, tables?);
+            let tables: Result<_> = module.tables.iter().map(GenTable::hash).collect();
+            module.tables_merkle = GenMerkle::new(MerkleType::Table, tables?);
 
             let funcs =
                 Arc::get_mut(&mut module.funcs).expect("Multiple copies of module functions");
             for func in funcs.iter_mut() {
-                func.code_merkle = Merkle::new(
+                func.code_merkle = GenMerkle::new(
                     MerkleType::Instruction,
-                    func.code.par_iter().map(|i| i.hash()).collect(),
+                    func.code.iter().map(|i| i.gen_hash::<T,H>()).collect(),
                 );
             }
-            module.funcs_merkle = Arc::new(Merkle::new(
+            module.funcs_merkle = Arc::new(GenMerkle::new(
                 MerkleType::Function,
-                module.funcs.iter().map(Function::hash).collect(),
+                module.funcs.iter().map(GenFunction::hash).collect(),
             ));
         }
-        let mut mach = Machine {
+        let mut mach = GenMachine {
             status: MachineStatus::Running,
             steps: 0,
             value_stack: vec![Value::RefNull, Value::I32(0), Value::I32(0)],
@@ -1281,7 +1280,7 @@ impl <T: HashResult, H: Hasher<T>> GenMachine<T,H> {
             stdio_output: Vec::new(),
             inbox_contents: Default::default(),
             preimage_resolver: PreimageResolverWrapper::new(get_empty_preimage_resolver()),
-            initial_hash: Bytes32::default(),
+            initial_hash: T::default(),
             context: 0,
         };
         mach.initial_hash = mach.hash();
@@ -1308,12 +1307,12 @@ impl <T: HashResult, H: Hasher<T>> GenMachine<T,H> {
         let modules = self
             .modules
             .iter()
-            .map(|m| ModuleState {
+            .map(|m| GenModuleState {
                 globals: Cow::Borrowed(&m.globals),
                 memory: Cow::Borrowed(&m.memory),
             })
             .collect();
-        let state = MachineState {
+        let state = GenMachineState {
             steps: self.steps,
             status: self.status,
             value_stack: Cow::Borrowed(&self.value_stack),
@@ -1324,7 +1323,7 @@ impl <T: HashResult, H: Hasher<T>> GenMachine<T,H> {
             global_state: self.global_state.clone(),
             pc: self.pc,
             stdio_output: Cow::Borrowed(&self.stdio_output),
-            initial_hash: self.initial_hash,
+            initial_hash: self.initial_hash.clone(),
         };
         bincode::serialize_into(&mut writer, &state)?;
         writer.flush()?;
@@ -1336,7 +1335,7 @@ impl <T: HashResult, H: Hasher<T>> GenMachine<T,H> {
     // Requires that this is the same base machine. If this returns an error, it has not mutated `self`.
     pub fn deserialize_and_replace_state<P: AsRef<Path>>(&mut self, path: P) -> Result<()> {
         let reader = BufReader::new(File::open(path)?);
-        let new_state: MachineState = bincode::deserialize_from(reader)?;
+        let new_state: GenMachineState<T,H> = bincode::deserialize_from(reader)?;
         if self.initial_hash != new_state.initial_hash {
             bail!(
                 "attempted to load deserialize machine with initial hash {} into machine with initial hash {}",
@@ -1380,7 +1379,7 @@ impl <T: HashResult, H: Hasher<T>> GenMachine<T,H> {
         Some(self.pc)
     }
 
-    fn test_next_instruction(func: &Function, pc: &ProgramCounter) {
+    fn test_next_instruction(func: &GenFunction<T,H>, pc: &ProgramCounter) {
         debug_assert!(func.code.len() > pc.inst);
     }
 
@@ -1470,24 +1469,24 @@ impl <T: HashResult, H: Hasher<T>> GenMachine<T,H> {
                 }
                 Opcode::ArbitraryJump => {
                     self.pc.inst = inst.argument_data as usize;
-                    Machine::test_next_instruction(func, &self.pc);
+                    Self::test_next_instruction(func, &self.pc);
                 }
                 Opcode::ArbitraryJumpIf => {
                     let x = self.value_stack.pop().unwrap();
                     if !x.is_i32_zero() {
                         self.pc.inst = inst.argument_data as usize;
-                        Machine::test_next_instruction(func, &self.pc);
+                        Self::test_next_instruction(func, &self.pc);
                     }
                 }
                 Opcode::Branch => {
                     self.pc.inst = self.block_stack.pop().unwrap();
-                    Machine::test_next_instruction(func, &self.pc);
+                    Self::test_next_instruction(func, &self.pc);
                 }
                 Opcode::BranchIf => {
                     let x = self.value_stack.pop().unwrap();
                     if !x.is_i32_zero() {
                         self.pc.inst = self.block_stack.pop().unwrap();
-                        Machine::test_next_instruction(func, &self.pc);
+                        Self::test_next_instruction(func, &self.pc);
                     }
                 }
                 Opcode::Return => {
@@ -1990,7 +1989,7 @@ impl <T: HashResult, H: Hasher<T>> GenMachine<T,H> {
 
     fn host_call_hook(
         value_stack: &[Value],
-        module: &Module,
+        module: &GenModule<T,H>,
         stdio_output: &mut Vec<u8>,
         module_name: &str,
         name: &str,
@@ -2074,48 +2073,48 @@ impl <T: HashResult, H: Hasher<T>> GenMachine<T,H> {
         self.status
     }
 
-    fn get_modules_merkle(&self) -> Cow<Merkle> {
+    fn get_modules_merkle(&self) -> Cow<GenMerkle<T,H>> {
         if let Some(merkle) = &self.modules_merkle {
             Cow::Borrowed(merkle)
         } else {
-            Cow::Owned(Merkle::new(
+            Cow::Owned(GenMerkle::new(
                 MerkleType::Module,
-                self.modules.iter().map(Module::hash).collect(),
+                self.modules.iter().map(GenModule::hash).collect(),
             ))
         }
     }
 
-    pub fn get_modules_root(&self) -> Bytes32 {
+    pub fn get_modules_root(&self) -> T {
         self.get_modules_merkle().root()
     }
 
-    pub fn hash(&self) -> Bytes32 {
-        let mut h = Keccak256::new();
+    pub fn hash(&self) -> T {
+        let mut h = H::make();
         match self.status {
             MachineStatus::Running => {
-                h.update(b"Machine running:");
-                h.update(&hash_value_stack(&self.value_stack));
-                h.update(&hash_value_stack(&self.internal_stack));
-                h.update(&hash_pc_stack(&self.block_stack));
-                h.update(hash_stack_frame_stack(&self.frame_stack));
-                h.update(self.global_state.hash());
-                h.update(&u32::try_from(self.pc.module).unwrap().to_be_bytes());
-                h.update(&u32::try_from(self.pc.func).unwrap().to_be_bytes());
-                h.update(&u32::try_from(self.pc.inst).unwrap().to_be_bytes());
-                h.update(self.get_modules_root());
+                h.update_title(b"Machine running:");
+                h.update_hash(&gen_hash_value_stack::<T,H>(&self.value_stack));
+                h.update_hash(&gen_hash_value_stack::<T,H>(&self.internal_stack));
+                h.update_hash(&gen_hash_pc_stack::<T,H>(&self.block_stack));
+                h.update_hash(&gen_hash_stack_frame_stack::<T,H>(&self.frame_stack));
+                h.update_hash(&self.global_state.gen_hash::<T,H>());
+                h.update_usize(self.pc.module);
+                h.update_usize(self.pc.func);
+                h.update_usize(self.pc.inst);
+                h.update_hash(&self.get_modules_root());
             }
             MachineStatus::Finished => {
-                h.update("Machine finished:");
-                h.update(self.global_state.hash());
+                h.update_title(b"Machine finished:");
+                h.update_hash(&self.global_state.gen_hash::<T,H>());
             }
             MachineStatus::Errored => {
-                h.update("Machine errored:");
+                h.update_title(b"Machine errored:");
             }
             MachineStatus::TooFar => {
-                h.update("Machine too far:");
+                h.update_title(b"Machine too far:");
             }
         }
-        h.finalize().into()
+        h.result()
     }
 
     pub fn serialize_proof(&self) -> Vec<u8> {
@@ -2154,7 +2153,7 @@ impl <T: HashResult, H: Hasher<T>> GenMachine<T,H> {
         data.extend(&(self.pc.func as u32).to_be_bytes());
         data.extend(&(self.pc.inst as u32).to_be_bytes());
         let mod_merkle = self.get_modules_merkle();
-        data.extend(mod_merkle.root());
+        data.extend(mod_merkle.root().into());
 
         // End machine serialization, serialize module
 
@@ -2410,9 +2409,9 @@ impl <T: HashResult, H: Hasher<T>> GenMachine<T,H> {
             }
         }
         res
-    }*/
+    }
 }
-
+/*
 
 impl Machine {
     pub const MAX_STEPS: u64 = 1 << 43;
@@ -3890,3 +3889,4 @@ impl Machine {
         res
     }
 }
+*/
