@@ -2,7 +2,7 @@
 // For license information, see https://github.com/nitro/blob/master/LICENSE
 
 use crate::{
-    merkle::{Merkle, MerkleType},
+    merkle::{Merkle, GenMerkle, MerkleType},
     utils::Bytes32,
     value::{ArbValueType, Value},
 };
@@ -11,19 +11,32 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use sha3::Keccak256;
 use std::{borrow::Cow, convert::TryFrom};
+use core::fmt::Debug;
+use crate::Hasher;
 
-#[derive(PartialEq, Eq, Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Memory {
     buffer: Vec<u8>,
     #[serde(skip)]
     merkle: Option<Merkle>,
 }
 
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct GenMemory<T: Debug + Clone + PartialEq + Eq + Default + Into<Vec<u8>>, H: Hasher<T>> {
+    buffer: Vec<u8>,
+    #[serde(skip)]
+    merkle: Option<GenMerkle<T,H>>,
+}
+
 fn hash_leaf(bytes: [u8; Memory::LEAF_SIZE]) -> Bytes32 {
-    let mut h = Keccak256::new();
-    h.update("Memory leaf:");
-    h.update(bytes);
-    h.finalize().into()
+    gen_hash_leaf::<Bytes32, Keccak256>(bytes)
+}
+
+fn gen_hash_leaf<T, H: Hasher<T>>(bytes: [u8; Memory::LEAF_SIZE]) -> T {
+    let mut h = H::make();
+    h.update_title(b"Memory leaf:");
+    h.update_vec(&bytes.to_vec());
+    h.result()
 }
 
 fn round_up_to_power_of_two(mut input: usize) -> usize {

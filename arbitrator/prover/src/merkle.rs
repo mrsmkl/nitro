@@ -40,19 +40,12 @@ impl MerkleType {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct Merkle {
-    ty: MerkleType,
-    layers: Vec<Vec<Bytes32>>,
-    empty_layers: Vec<Bytes32>,
-}
-
 use std::fmt::Debug;
 use crate::Hasher;
 use std::marker::PhantomData;
 
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct GenMerkle<T: Debug + Clone + PartialEq + Eq + Default, H: Hasher<T> + Default> {
+#[derive(Debug, Clone)]
+pub struct GenMerkle<T: Debug + Clone + PartialEq + Eq + Default + Into<Vec<u8>>, H: Hasher<T>> {
     ty: MerkleType,
     layers: Vec<Vec<T>>,
     empty_layers: Vec<T>,
@@ -69,6 +62,16 @@ fn gen_hash_node<T, H: Hasher<T>>(ty: MerkleType, a: T, b: T) -> T {
     h.update_hash(&a);
     h.update_hash(&b);
     h.result()
+}
+
+pub type Merkle = GenMerkle<Bytes32, Keccak256>;
+
+/*
+#[derive(Debug, Clone, Default)]
+pub struct Merkle {
+    ty: MerkleType,
+    layers: Vec<Vec<Bytes32>>,
+    empty_layers: Vec<Bytes32>,
 }
 
 impl Merkle {
@@ -172,8 +175,20 @@ impl Merkle {
         }
     }
 }
+*/
 
-impl<T: Debug + Clone + PartialEq + Eq + Default, H: Hasher<T> + Default> GenMerkle<T, H> {
+impl<T: Debug + Clone + PartialEq + Eq + Default + Into<Vec<u8>>, H: Hasher<T>> Default for GenMerkle<T, H> {
+    fn default() -> Self {
+        GenMerkle {
+            ty: MerkleType::default(),
+            layers: vec![],
+            empty_layers: vec![],
+            hasher: PhantomData,
+        }
+    }
+}
+
+impl<T: Debug + Clone + PartialEq + Eq + Default + Into<Vec<u8>>, H: Hasher<T>> GenMerkle<T, H> {
     pub fn new(ty: MerkleType, hashes: Vec<T>) -> GenMerkle<T, H> {
         Self::new_advanced(ty, hashes, T::default(), 0)
     }
@@ -233,7 +248,7 @@ impl<T: Debug + Clone + PartialEq + Eq + Default, H: Hasher<T> + Default> GenMer
     }
 
     #[must_use]
-    pub fn prove(&self, mut idx: usize) -> Option<Vec<T>> {
+    pub fn prove_gen(&self, mut idx: usize) -> Option<Vec<T>> {
         if idx >= self.leaves().len() {
             return None;
         }
@@ -253,6 +268,21 @@ impl<T: Debug + Clone + PartialEq + Eq + Default, H: Hasher<T> + Default> GenMer
             idx >>= 1;
         }
         Some(proof)
+    }
+
+    pub fn prove(&self, mut idx: usize) -> Option<Vec<u8>> {
+        let proof = self.prove_gen(idx);
+        match proof {
+            None => None,
+            Some(proof) => {
+                let mut res = vec![u8::try_from(proof.len() - 1).unwrap()];
+                for el in proof.iter() {
+                    let el : Vec<u8> = el.clone().into();
+                    res.extend(el)
+                }
+                Some(res)
+            }
+        }
     }
 
     pub fn set(&mut self, mut idx: usize, hash: T) {

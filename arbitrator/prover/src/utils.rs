@@ -25,6 +25,12 @@ impl Deref for Bytes32 {
     }
 }
 
+impl Into<Vec<u8>> for Bytes32 {
+    fn into(self) -> Vec<u8> {
+        self.0.to_vec()
+    }
+}
+
 impl DerefMut for Bytes32 {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
