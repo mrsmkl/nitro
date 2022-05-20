@@ -2,12 +2,14 @@
 // For license information, see https://github.com/nitro/blob/master/LICENSE
 
 use crate::{
-    machine::{Function, InboxIdentifier},
+    machine::{Function, InboxIdentifier, GenFunction},
     value::{ArbValueType, FunctionType},
     wavm::{Instruction, Opcode},
+    Hasher,
+    HashResult,
 };
 
-pub fn get_host_impl(module: &str, name: &str) -> eyre::Result<Function> {
+pub fn get_host_impl<T: HashResult, H: Hasher<T>>(module: &str, name: &str) -> eyre::Result<GenFunction<T,H>> {
     let mut out = vec![];
     let ty;
 
@@ -104,5 +106,5 @@ pub fn get_host_impl(module: &str, name: &str) -> eyre::Result<Function> {
         Ok(())
     };
 
-    Function::new(&[], append, ty, &[])
+    GenFunction::new(&[], append, ty, &[])
 }

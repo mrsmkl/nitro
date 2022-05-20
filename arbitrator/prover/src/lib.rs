@@ -4,6 +4,7 @@
 #![allow(clippy::missing_safety_doc)] // We have a lot of unsafe ABI
 
 use serde::{Serialize, Deserialize};
+use core::fmt::Debug;
 
 #[derive(Default, Clone, Debug, Serialize, Deserialize)]
 pub struct Keccak {
@@ -11,7 +12,9 @@ pub struct Keccak {
     i: Keccak256
 }
 
-pub trait Hasher<T> {
+pub trait HashResult: Debug + Clone + PartialEq + Eq + Default + Into<Vec<u8>> + From<u32> {}
+
+pub trait Hasher<T>: Clone + Default {
     fn make() -> Self;
     fn update_title(&mut self, b: &[u8]);
     fn update_u64(&mut self, arg: u64);

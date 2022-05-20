@@ -11,11 +11,15 @@ use std::{
     path::Path,
 };
 use wasmparser::{TableType, Type};
+use crate::HashResult;
 
 /// cbindgen:field-names=[bytes]
 #[derive(Default, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[repr(C)]
 pub struct Bytes32(pub [u8; 32]);
+
+impl HashResult for Bytes32 {
+}
 
 impl Deref for Bytes32 {
     type Target = [u8; 32];
