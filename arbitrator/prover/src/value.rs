@@ -207,23 +207,68 @@ pub struct FunctionType {
     pub outputs: Vec<ArbValueType>,
 }
 
+pub trait Hasher<T> {
+    fn make() -> Self;
+    fn update_title(&mut self, b: &[u8]);
+    fn update_u64(&mut self, arg: u64);
+    fn update_usize(&mut self, arg: usize);
+    fn update_u32(&mut self, arg: u32);
+    fn update_vec(&mut self, arg: &[u8]);
+    fn update_hash(&mut self, a: &T);
+    fn result(&mut self) -> T;
+}
+
+impl Hasher<Bytes32> for Keccak256 {
+    fn make() -> Self {
+        Keccak256::new()
+    }
+    fn update_title(&mut self, b: &[u8]) {
+        self.update(b)
+    }
+    fn update_u64(&mut self, arg: u64) {
+        self.update(Bytes32::from(arg))
+    }
+    fn update_usize(&mut self, arg: usize) {
+        self.update(Bytes32::from(arg))
+    }
+    fn update_u32(&mut self, arg: u32) {
+        self.update(Bytes32::from(arg))
+    }
+    fn update_hash(&mut self, arg: &Bytes32) {
+        self.update(arg)
+    }
+    fn update_vec(&mut self, arg: &[u8]) {
+        self.update(arg)
+    }
+    fn result(&mut self) -> Bytes32 {
+        self.clone().finalize().into()
+    }
+}
+
 impl FunctionType {
     pub fn new(inputs: Vec<ArbValueType>, outputs: Vec<ArbValueType>) -> FunctionType {
         FunctionType { inputs, outputs }
     }
 
-    pub fn hash(&self) -> Bytes32 {
-        let mut h = Keccak256::new();
-        h.update(b"Function type:");
-        h.update(Bytes32::from(self.inputs.len()));
+    pub fn gen_hash<T, H: Hasher<T>>(&self) -> T {
+        let mut h = H::make();
+        h.update_title(b"Function type:");
+        h.update_usize(self.inputs.len());
+        let mut input_vec = vec![];
         for input in &self.inputs {
-            h.update(&[*input as u8]);
+            input_vec.push(*input as u8)
         }
-        h.update(Bytes32::from(self.outputs.len()));
+        h.update_vec(&input_vec);
+        h.update_usize(self.outputs.len());
+        let mut output_vec = vec![];
         for output in &self.outputs {
-            h.update(&[*output as u8]);
+            output_vec.push(*output as u8)
         }
-        h.finalize().into()
+        h.update_vec(&output_vec);
+        h.result()
+    }
+    pub fn hash(&self) -> Bytes32 {
+        self.gen_hash::<Bytes32, Keccak256>()
     }
 }
 
