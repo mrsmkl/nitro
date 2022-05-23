@@ -10,38 +10,39 @@ use ark_relations::r1cs::ConstraintSystemRef;
 use ark_relations::r1cs::ConstraintSystem;
 
 use ark_std::UniformRand;
-use ark_ff::Field;
+use ark_ff::{Field,PrimeField,BigInteger};
 use ark_r1cs_std::fields::FieldVar;
 use ark_r1cs_std::R1CSVar;
 
-/*
-use crate::{VM,Transition,hash_list,hash_code};
-use crate::InstructionCircuit;
-*/
 use ark_r1cs_std::boolean::AllocatedBool;
 use ark_r1cs_std::boolean::Boolean;
+use crate::{Hasher,HashResult};
+use serde::{Serialize,Deserialize};
+use crate::Bytes32;
 
-#[derive(Debug, Clone)]
+#[derive(Debug,Clone,Default,Eq,PartialEq/*,Serialize,Deserialize*/)]
 pub struct Params {
     c: Vec<Fr>,
     m: Vec<Vec<Fr>>,
 }
 
-pub fn generate_params() -> Params {
-    let mut test_rng = ark_std::test_rng();
-    let mut c = vec![];
-    for _i in 0..1000 {
-        c.push(Fr::rand(&mut test_rng))
-    }
-    let mut m = vec![];
-    for _i in 0..20 {
-        let mut a = vec![];
-        for _j in 0..20 {
-            a.push(Fr::rand(&mut test_rng))
+impl Params {
+    pub fn new() -> Self {
+        let mut test_rng = ark_std::test_rng();
+        let mut c = vec![];
+        for _i in 0..1000 {
+            c.push(Fr::rand(&mut test_rng))
         }
-        m.push(a)
+        let mut m = vec![];
+        for _i in 0..20 {
+            let mut a = vec![];
+            for _j in 0..20 {
+                a.push(Fr::rand(&mut test_rng))
+            }
+            m.push(a)
+        }
+        Params { c, m }
     }
-    Params { c, m }
 }
 
 fn sigma(a: Fr) -> Fr {
@@ -103,6 +104,91 @@ pub fn poseidon(params: &Params, inputs: Vec<Fr>) -> Fr {
     mix_out[0]
 }
 
+#[derive(Debug,Clone,Default,Eq,PartialEq/*,Serialize,Deserialize*/)]
+pub struct Poseidon {
+    params: Params,
+    elems: Vec<Fr>,
+}
+
+#[derive(Debug,Clone,Default,Eq,PartialEq,Serialize,Deserialize)]
+pub struct FrHash {
+    #[serde(skip)]
+    hash: Fr
+}
+
+impl FrHash {
+    fn new(hash: Fr) -> Self {
+        FrHash {
+            hash
+        }
+    }
+}
+
+impl std::fmt::Display for FrHash {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.hash)
+    }
+}
+
+impl From<u32> for FrHash {
+    fn from(x: u32) -> Self {
+        FrHash::new(Fr::from(x))
+    }
+}
+
+impl Into<Vec<u8>> for FrHash {
+    fn into(self) -> Vec<u8> {
+        self.hash.into_repr().to_bytes_be()
+    }
+}
+
+impl HashResult for FrHash {
+}
+
+fn vec_to_fr(v: &[u8]) -> Fr {
+    let mut res = Fr::from(0);
+    for e in v.iter() {
+        res = res*Fr::from(256) + Fr::from(*e);
+    }
+    res
+}
+
+impl Hasher<FrHash> for Poseidon {
+    fn make() -> Self {
+        Poseidon {
+            params: Params::new(),
+            elems: vec![],
+        }
+    }
+    fn update_title(&mut self, b: &[u8]) {
+        // self.i.update(b)
+    }
+    fn update_u64(&mut self, arg: u64) {
+        self.elems.push(Fr::from(arg))
+    }
+    fn update_usize(&mut self, arg: usize) {
+        self.elems.push(Fr::from(arg as u64))
+    }
+    fn update_u32(&mut self, arg: u32) {
+        self.elems.push(Fr::from(arg))
+    }
+    fn update_hash(&mut self, arg: &FrHash) {
+        self.elems.push(arg.hash)
+    }
+    fn update_bytes32(&mut self, arg: &Bytes32) {
+        let v : Vec<u8> = arg.clone().into();
+        self.elems.push(vec_to_fr(&v))
+    }
+    fn update_vec(&mut self, arg: &[u8]) {
+        self.elems.push(vec_to_fr(arg))
+    }
+    fn result(&mut self) -> FrHash {
+        let res = poseidon(&self.params, self.elems.clone());
+        self.elems = vec![];
+        FrHash::new(res)
+    }
+}
+
 fn sigma_gadget(a: FpVar<Fr>) -> FpVar<Fr> {
     let a2 = a.square().unwrap();
     let a4 = a2.square().unwrap();
@@ -162,62 +248,6 @@ pub fn poseidon_gadget(params: &Params, inputs: Vec<FpVar<Fr>>) -> FpVar<Fr> {
     mix_out[0].clone()
 }
 
-/*
-#[derive(Debug, Clone)]
-pub struct TestCircuit {
-    pub steps: usize,
-    pub params: PoseidonParameters<Fr>,
-}
-
-impl InstructionCircuit for TestCircuit {
-    fn calc_hash(&self) -> Fr {
-        panic!("calc hash");
-    }
-    fn transition(&self) -> Transition {
-        panic!("transition")
-    }
-}
-
-fn generate_step(cs: ConstraintSystemRef<Fr>, _params: PoseidonParameters<Fr>, params_g: &CRHParametersVar::<Fr>)
--> Result<FpVar<Fr>, SynthesisError> {
-    let var_a = FpVar::Var(AllocatedFp::<Fr>::new_witness(cs.clone(), || Ok(Fr::from(1))).unwrap());
-    let var_b = FpVar::Var(AllocatedFp::<Fr>::new_witness(cs.clone(), || Ok(Fr::from(2))).unwrap());
-    let var_c = FpVar::Var(AllocatedFp::<Fr>::new_witness(cs.clone(), || Ok(Fr::from(2))).unwrap());
-    let var_d = FpVar::Var(AllocatedFp::<Fr>::new_witness(cs.clone(), || Ok(Fr::from(2))).unwrap());
-    let var_e = FpVar::Var(AllocatedFp::<Fr>::new_witness(cs.clone(), || Ok(Fr::from(2))).unwrap());
-    let var_f = FpVar::Var(AllocatedFp::<Fr>::new_witness(cs.clone(), || Ok(Fr::from(2))).unwrap());
-
-    let mut inputs = Vec::new();
-    inputs.push(var_a);
-    inputs.push(var_b);
-    inputs.push(var_c);
-    inputs.push(var_d);
-    inputs.push(var_e);
-    inputs.push(var_f);
-    let hash_gadget = CRHGadget::<Fr>::evaluate(&params_g, &inputs).unwrap();
-
-    Ok(hash_gadget)
-}
-
-impl ConstraintSynthesizer<Fr> for TestCircuit {
-    fn generate_constraints(
-        self,
-        cs: ConstraintSystemRef<Fr>,
-    ) -> Result<(), SynthesisError> {
-        let params_g = CRHParametersVar::<Fr>::new_witness(cs.clone(), || Ok(self.params.clone())).unwrap();
-        // make each step
-        let mut vars = vec![];
-        for _el in 0..self.steps {
-            let var = generate_step(cs.clone(), self.params.clone(), &params_g);
-            vars.push(var);
-        }
-        // println!("num constraints {}, valid {}", cs.num_constraints(), cs.is_satisfied().unwrap());
-        println!("num constraints {}", cs.num_constraints());
-        Ok(())
-    }
-}
-*/
-
 #[derive(Debug, Clone)]
 pub struct Proof {
     pub path: Vec<Fr>,
@@ -265,7 +295,7 @@ pub fn make_path(cs: ConstraintSystemRef<Fr>, num: usize, params : &Params, elem
 pub fn test() {
     let cs_sys = ConstraintSystem::<Fr>::new();
     let cs = ConstraintSystemRef::new(cs_sys);
-    let params = generate_params();
+    let params = Params::new();
     println!("hash {}", poseidon(&params, vec![Fr::from(123), Fr::from(123), Fr::from(123)]));
     let v1 = FpVar::Var(AllocatedFp::<Fr>::new_witness(cs.clone(), || Ok(Fr::from(123))).unwrap());
     let v2 = FpVar::Var(AllocatedFp::<Fr>::new_witness(cs.clone(), || Ok(Fr::from(123))).unwrap());

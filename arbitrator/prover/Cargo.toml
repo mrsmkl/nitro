@@ -27,7 +27,7 @@ serde_with = "1.12.1"
 
 ark-crypto-primitives = { version = "^0.3.0", features = [ "r1cs" ] }
 ark-std = "^0.3.0"
-ark-ff = { version = "^0.3.0", features = [ "asm" ] }
+ark-ff = { version = "^0.3.0", features = [ "asm", "std" ] }
 ark-ec = "^0.3.0"
 ark-sponge = "^0.3.0"
 ark-bls12-381 = { version = "^0.3.0", features = [ "curve" ] }

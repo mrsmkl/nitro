@@ -1406,10 +1406,9 @@ fn make_proof(
 
 pub fn test() {
     use ark_relations::r1cs::ConstraintSystem;
-    use crate::circuit::hash::generate_params;
     let cs_sys = ConstraintSystem::<Fr>::new();
     let cs = ConstraintSystemRef::new(cs_sys);
-    let params = generate_params();
+    let params = Params::new();
     let (_before, _after) = make_proof(
         cs.clone(),
         &params,
