@@ -315,7 +315,7 @@ fn main() -> Result<()> {
             );
             std::io::stdout().flush().unwrap();
             let before = mach.hash().clone();
-            if !seen_states.insert(before) {
+            if !seen_states.insert(before.clone()) {
                 break;
             }
             let proof = mach.serialize_proof();
