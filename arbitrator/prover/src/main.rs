@@ -4,7 +4,7 @@
 use eyre::{Context, Result};
 use fnv::{FnvHashMap as HashMap, FnvHashSet as HashSet};
 use prover::{
-    machine::{GlobalState, InboxIdentifier, Machine, MachineStatus, PreimageResolver},
+    machine::{GlobalState, InboxIdentifier, Machine, PoseidonMachine, MachineStatus, PreimageResolver},
     utils::{Bytes32, CBytes},
     wavm::Opcode,
 };
@@ -185,7 +185,7 @@ fn main() -> Result<()> {
         bytes32_vals: [last_block_hash, last_send_root],
     };
 
-    let mut mach = Machine::from_paths(
+    let mut mach = PoseidonMachine::from_paths(
         &opts.libraries,
         &opts.binary,
         opts.always_merkleize,
@@ -314,7 +314,7 @@ fn main() -> Result<()> {
                 next_inst.argument_data,
             );
             std::io::stdout().flush().unwrap();
-            let before = mach.hash();
+            let before = mach.hash().clone();
             if !seen_states.insert(before) {
                 break;
             }

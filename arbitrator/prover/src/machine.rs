@@ -725,7 +725,10 @@ pub struct GenMachine<T: HashResult, H: Hasher<T>> {
     context: u64,
 }
 
+use crate::circuit::hash::{FrHash, Poseidon};
+
 pub type Machine = GenMachine<Bytes32, Keccak>;
+pub type PoseidonMachine = GenMachine<FrHash, Poseidon>;
 
 fn gen_hash_stack<T: HashResult, H: Hasher<T>, I>(stack: I, prefix: &[u8]) -> T
 where
@@ -877,8 +880,7 @@ pub fn get_empty_preimage_resolver() -> PreimageResolver {
     Arc::new(|_, _| None) as _
 }
 
-
-impl <T: HashResult  + serde::de::DeserializeOwned, H: Hasher<T> + serde::de::DeserializeOwned + Serialize> GenMachine<T,H> {
+impl <T: HashResult + serde::de::DeserializeOwned, H: Hasher<T> + serde::de::DeserializeOwned + Serialize> GenMachine<T,H> {
     pub const MAX_STEPS: u64 = 1 << 43;
     pub fn from_paths(
         library_paths: &[PathBuf],

@@ -104,13 +104,15 @@ pub fn poseidon(params: &Params, inputs: Vec<Fr>) -> Fr {
     mix_out[0]
 }
 
-#[derive(Debug,Clone,Default,Eq,PartialEq/*,Serialize,Deserialize*/)]
+#[derive(Debug,Clone,Default,Eq,PartialEq,Serialize,Deserialize)]
 pub struct Poseidon {
+    #[serde(skip)]
     params: Params,
+    #[serde(skip)]
     elems: Vec<Fr>,
 }
 
-#[derive(Debug,Clone,Default,Eq,PartialEq,Serialize,Deserialize)]
+#[derive(Debug,Clone,Default,Eq,PartialEq,Serialize,Deserialize,Hash)]
 pub struct FrHash {
     #[serde(skip)]
     hash: Fr
