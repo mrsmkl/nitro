@@ -14,14 +14,14 @@ use crate::{
         IBinOpType, IRelOpType, IUnOpType, Instruction, Opcode,
     },
 };
-use digest::Digest;
+// use digest::Digest;
 use eyre::{bail, ensure, eyre, Result, WrapErr};
 use fnv::FnvHashMap as HashMap;
 use num::{traits::PrimInt, Zero};
-use rayon::prelude::*;
+//use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, FromInto};
-use sha3::Keccak256;
+// use sha3::Keccak256;
 use std::{
     borrow::Cow,
     convert::TryFrom,
@@ -158,11 +158,7 @@ struct StackFrame {
 }
 
 impl StackFrame {
-    fn hash(&self) -> Bytes32 {
-        self.gen_hash::<Bytes32,Keccak>()
-    }
-
-    fn gen_hash<T: Debug + Clone + PartialEq + Eq + Default + Into<Vec<u8>>, H: Hasher<T>>(&self) -> T {
+    fn hash<T: Debug + Clone + PartialEq + Eq + Default + Into<Vec<u8>>, H: Hasher<T>>(&self) -> T {
         let mut h = H::make();
         h.update_title(b"Stack frame:");
         h.update_hash(&self.return_ref.gen_hash::<T,H>());
@@ -208,10 +204,7 @@ impl Default for TableElement {
 }
 
 impl TableElement {
-    fn hash(&self) -> Bytes32 {
-        self.gen_hash::<Bytes32,Keccak>()
-    }
-    fn gen_hash<T, H: Hasher<T>>(&self) -> T {
+    fn hash<T, H: Hasher<T>>(&self) -> T {
         let mut h = H::make();
         h.update_title(b"Table element:");
         h.update_hash(&self.func_ty.gen_hash::<T,H>());
@@ -229,8 +222,6 @@ struct GenTable<T: Debug + Clone + PartialEq + Eq + Default + Into<Vec<u8>>, H: 
     #[serde(skip)]
     elems_merkle: GenMerkle<T,H>,
 }
-
-type Table = GenTable<Bytes32, Keccak>;
 
 impl <T: Debug + Clone + PartialEq + Eq + Default + Into<Vec<u8>>, H: Hasher<T>> GenTable<T,H> {
     fn serialize_for_proof(&self) -> Result<Vec<u8>> {
@@ -266,26 +257,6 @@ struct AvailableImport {
     func: u32,
 }
 
-/*
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-struct Module {
-    globals: Vec<Value>,
-    memory: Memory,
-    tables: Vec<Table>,
-    #[serde(skip)]
-    tables_merkle: Merkle,
-    funcs: Arc<Vec<Function>>,
-    #[serde(skip)]
-    funcs_merkle: Arc<Merkle>,
-    types: Arc<Vec<FunctionType>>,
-    internals_offset: u32,
-    names: Arc<NameCustomSection>,
-    host_call_hooks: Arc<Vec<Option<(String, String)>>>,
-    start_function: Option<u32>,
-    func_types: Arc<Vec<FunctionType>>,
-    exports: Arc<HashMap<String, u32>>,
-}*/
-
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 struct GenModule<T: HashResult, H: Hasher<T>> {
     globals: Vec<Value>,
@@ -304,8 +275,6 @@ struct GenModule<T: HashResult, H: Hasher<T>> {
     func_types: Arc<Vec<FunctionType>>,
     exports: Arc<HashMap<String, u32>>,
 }
-
-type Module = GenModule<Bytes32, Keccak>;
 
 impl<T: HashResult, H: Hasher<T>> GenModule<T,H> {
     fn from_binary(
@@ -669,22 +638,15 @@ pub enum MachineStatus {
     TooFar,
 }
 
-/*
-#[derive(Clone, Serialize, Deserialize)]
-pub struct ModuleState<'a> {
-    globals: Cow<'a, Vec<Value>>,
-    memory: Cow<'a, Memory>,
-}*/
-
 #[derive(Clone, Serialize, Deserialize)]
 pub struct GenModuleState<'a, T: Debug + Clone + PartialEq + Eq + Default + Into<Vec<u8>>, H: Hasher<T>> {
     globals: Cow<'a, Vec<Value>>,
     memory: Cow<'a, GenMemory<T,H>>,
 }
 
-type ModuleState<'a> = GenModuleState<'a,Bytes32,Keccak>;
+// type ModuleState<'a> = GenModuleState<'a,Bytes32,Keccak>;
 
-type MachineState<'a> = GenMachineState<'a, Bytes32, Keccak>;
+// type MachineState<'a> = GenMachineState<'a, Bytes32, Keccak>;
 
 #[derive(Serialize, Deserialize)]
 pub struct GenMachineState<'a, T: HashResult, H: Hasher<T>> {
@@ -763,26 +725,6 @@ pub struct GenMachine<T: HashResult, H: Hasher<T>> {
     context: u64,
 }
 
-/*
-#[derive(Clone)]
-pub struct Machine {
-    steps: u64, // Not part of machine hash
-    status: MachineStatus,
-    value_stack: Vec<Value>,
-    internal_stack: Vec<Value>,
-    block_stack: Vec<usize>,
-    frame_stack: Vec<StackFrame>,
-    modules: Vec<Module>,
-    modules_merkle: Option<Merkle>,
-    global_state: GlobalState,
-    pc: ProgramCounter,
-    stdio_output: Vec<u8>,
-    inbox_contents: HashMap<(InboxIdentifier, u64), Vec<u8>>,
-    preimage_resolver: PreimageResolverWrapper,
-    initial_hash: Bytes32,
-    context: u64,
-}*/
-
 pub type Machine = GenMachine<Bytes32, Keccak>;
 
 fn gen_hash_stack<T: HashResult, H: Hasher<T>, I>(stack: I, prefix: &[u8]) -> T
@@ -824,7 +766,7 @@ fn hash_stack_frame_stack(frames: &[StackFrame]) -> Bytes32 {
 }
 
 fn gen_hash_stack_frame_stack<T: HashResult, H: Hasher<T>>(frames: &[StackFrame]) -> T {
-    gen_hash_stack::<T,H,_>(frames.iter().map(|f| f.gen_hash::<T,H>()), b"Stack frame stack:")
+    gen_hash_stack::<T,H,_>(frames.iter().map(|f| f.hash::<T,H>()), b"Stack frame stack:")
 }
 
 #[must_use]
@@ -1199,7 +1141,7 @@ impl <T: HashResult  + serde::de::DeserializeOwned, H: Hasher<T> + serde::de::De
             for table in module.tables.iter_mut() {
                 table.elems_merkle = GenMerkle::new(
                     MerkleType::TableElement,
-                    table.elems.iter().map(TableElement::gen_hash::<T,H>).collect(),
+                    table.elems.iter().map(TableElement::hash::<T,H>).collect(),
                 );
             }
 
@@ -1247,7 +1189,7 @@ impl <T: HashResult  + serde::de::DeserializeOwned, H: Hasher<T> + serde::de::De
             for table in module.tables.iter_mut() {
                 table.elems_merkle = GenMerkle::new(
                     MerkleType::TableElement,
-                    table.elems.iter().map(TableElement::gen_hash::<T,H>).collect(),
+                    table.elems.iter().map(TableElement::hash::<T,H>).collect(),
                 );
             }
             let tables: Result<_> = module.tables.iter().map(GenTable::hash).collect();

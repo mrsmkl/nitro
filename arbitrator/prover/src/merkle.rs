@@ -172,6 +172,9 @@ impl<T: Debug + Clone + PartialEq + Eq + Default + Into<Vec<u8>>, H: Hasher<T>> 
         match proof {
             None => None,
             Some(proof) => {
+                if proof.len() == 0 {
+                    return Some(vec![])
+                }
                 let mut res = vec![u8::try_from(proof.len() - 1).unwrap()];
                 for el in proof.iter() {
                     let el : Vec<u8> = el.clone().into();

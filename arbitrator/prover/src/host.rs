@@ -2,7 +2,7 @@
 // For license information, see https://github.com/nitro/blob/master/LICENSE
 
 use crate::{
-    machine::{Function, InboxIdentifier, GenFunction},
+    machine::{/*Function, */InboxIdentifier, GenFunction},
     value::{ArbValueType, FunctionType},
     wavm::{Instruction, Opcode},
     Hasher,
