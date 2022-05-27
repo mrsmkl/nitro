@@ -330,6 +330,8 @@ pub fn unpack_cross_module_call(data: u64) -> (u32, u32) {
     ((data >> 32) as u32, data as u32)
 }
 
+use crate::circuit::InstructionHint;
+
 impl Instruction {
     #[must_use]
     pub fn simple(opcode: Opcode) -> Instruction {
@@ -376,6 +378,13 @@ impl Instruction {
         h.update_u32(self.opcode.repr() as u32);
         h.update_bytes32(&self.get_proving_argument_data());
         h.result()
+    }
+
+    pub fn hint(&self) -> InstructionHint {
+        InstructionHint {
+            opcode: self.opcode.repr() as u64,
+            argumentData: self.argument_data,
+        }
     }
 }
 

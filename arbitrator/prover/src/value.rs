@@ -101,6 +101,8 @@ pub enum Value {
     StackBoundary,
 }
 
+use crate::circuit::ValueHint;
+
 impl Value {
     pub fn ty(self) -> ArbValueType {
         match self {
@@ -125,6 +127,19 @@ impl Value {
             Value::FuncRef(x) => x.into(),
             Value::InternalRef(pc) => pc.serialize(),
             Value::StackBoundary => Bytes32::default(),
+        }
+    }
+
+    pub fn contents_u64(self) -> u64 {
+        match self {
+            Value::I32(x) => x.into(),
+            Value::I64(x) => x.into(),
+            Value::F32(x) => x.to_bits().into(),
+            Value::F64(x) => x.to_bits().into(),
+            Value::RefNull => 0,
+            Value::FuncRef(x) => x.into(),
+            Value::InternalRef(pc) => 0, // TODO: implement this
+            Value::StackBoundary => 0,
         }
     }
 
@@ -195,6 +210,13 @@ impl Value {
             ArbValueType::StackBoundary => {
                 panic!("Attempted to make default of StackBoundary type")
             }
+        }
+    }
+
+    pub fn hint(&self) -> ValueHint {
+        ValueHint {
+            value: self.contents_u64(),
+            ty: self.ty().serialize() as u32,
         }
     }
 }

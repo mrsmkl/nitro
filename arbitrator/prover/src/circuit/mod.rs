@@ -166,14 +166,14 @@ pub struct Value {
 
 #[derive(Debug, Clone)]
 pub struct ValueHint {
-    value: u64,
-    ty: u32,
+    pub value: u64,
+    pub ty: u32,
 }
 
 #[derive(Debug, Clone)]
 pub struct InstructionHint {
-    opcode: u64,
-    argumentData: u64,
+    pub opcode: u64,
+    pub argumentData: u64,
 }
 
 impl Value {
@@ -186,7 +186,7 @@ impl Value {
 }
 
 impl ValueHint {
-    fn hash(&self, params: &Params) -> Fr {
+    pub fn hash(&self, params: &Params) -> Fr {
         poseidon(&params, vec![
             Fr::from(self.value.clone()),
             Fr::from(self.ty.clone()),
@@ -410,7 +410,7 @@ trait InstCS {
     }
 }
 
-struct InstConstHint {
+pub struct InstConstHint {
 }
 
 struct InstConst {
@@ -484,11 +484,11 @@ pub fn execute_drop(_params: &Params, mach: &MachineWithStack) -> MachineWithSta
     mach
 }
 
-struct InstDropHint {
-    val: u64,
+pub struct InstDropHint {
+    val: Fr,
 }
 
-struct InstDrop {
+pub struct InstDrop {
     val: FpVar<Fr>,
 }
 
@@ -513,7 +513,7 @@ impl InstDropHint {
     }
     fn convert(&self, cs: &ConstraintSystemRef<Fr>) -> InstDrop {
         InstDrop {
-            val: FpVar::Var(AllocatedFp::<Fr>::new_witness(cs.clone(), || Ok(Fr::from(self.val))).unwrap()),
+            val: FpVar::Var(AllocatedFp::<Fr>::new_witness(cs.clone(), || Ok(self.val)).unwrap()),
         }
     }
 }
@@ -544,7 +544,7 @@ struct InstSelect {
     val3: FpVar<Fr>,
 }
 
-struct InstSelectHint {
+pub struct InstSelectHint {
     val1: Fr,
     val2: Fr,
     val3: Fr,
@@ -588,7 +588,7 @@ pub fn execute_block(_params: &Params, mach: &MachineWithStack) -> MachineWithSt
     mach
 }
 
-struct InstBlockHint {
+pub struct InstBlockHint {
 }
 
 struct InstBlock {
@@ -620,12 +620,12 @@ pub fn execute_branch(_params: &Params, mach: &MachineWithStack) -> MachineWithS
     mach
 }
 
-struct InstBranch {
+pub struct InstBranch {
     val: FpVar<Fr>,
     block: FpVar<Fr>,
 }
 
-struct InstBranchHint {
+pub struct InstBranchHint {
     val: Fr,
     block: Fr,
 }
@@ -672,13 +672,13 @@ pub fn execute_branch_if(params: &Params, mach: &MachineWithStack) -> MachineWit
     mach
 }
 
-struct InstBranchIf {
+pub struct InstBranchIf {
     val1: FpVar<Fr>,
     val2: FpVar<Fr>,
     block: FpVar<Fr>,
 }
 
-struct InstBranchIfHint {
+pub struct InstBranchIfHint {
     val1: Fr,
     val2: Fr,
     block: Fr,
@@ -724,10 +724,10 @@ pub struct StackFrame {
 
 #[derive(Debug, Clone)]
 pub struct StackFrameHint {
-    returnPc: ValueHint,
-    localsMerkleRoot: Fr,
-    callerModule: Fr,
-    callerModuleInternals: Fr,
+    pub returnPc: ValueHint,
+    pub localsMerkleRoot: Fr,
+    pub callerModule: Fr,
+    pub callerModuleInternals: Fr,
 }
 
 impl StackFrame {
@@ -782,11 +782,11 @@ pub fn execute_return(params: &Params, mach: &MachineWithStack, frame: &StackFra
     mach
 }
 
-struct InstReturnHint {
-    frame: StackFrameHint,
+pub struct InstReturnHint {
+    pub frame: StackFrameHint,
 }
 
-struct InstReturn {
+pub struct InstReturn {
     frame: StackFrame,
 }
 
@@ -838,11 +838,11 @@ pub fn execute_call(params: &Params, mach: &MachineWithStack, frame: &StackFrame
     mach
 }
 
-struct InstCall {
+pub struct InstCall {
     frame: StackFrame,
 }
 
-struct InstCallHint {
+pub struct InstCallHint {
     frame: StackFrameHint,
 }
 
@@ -878,10 +878,10 @@ pub fn execute_cross_module_call(params: &Params, mach: &MachineWithStack) -> Ma
     mach
 }
 
-struct InstCrossCall {
+pub struct InstCrossCall {
 }
 
-struct InstCrossCallHint {
+pub struct InstCrossCallHint {
 }
 
 impl Inst for InstCrossCall {
@@ -913,13 +913,13 @@ pub fn execute_local_get(cs: ConstraintSystemRef<Fr>, params: &Params, mach: &Ma
     mach
 }
 
-struct InstLocalGet {
+pub struct InstLocalGet {
     frame: StackFrame,
     val: FpVar<Fr>,
     proof: Proof,
 }
 
-struct InstLocalGetHint {
+pub struct InstLocalGetHint {
     frame: StackFrameHint,
     val: Fr,
     proof: Proof,
@@ -968,14 +968,14 @@ pub fn execute_local_set(cs: ConstraintSystemRef<Fr>, params: &Params, mach: &Ma
     mach
 }
 
-struct InstLocalSet {
+pub struct InstLocalSet {
     frame: StackFrame,
     val: FpVar<Fr>,
     old_val: FpVar<Fr>,
     proof: Proof,
 }
 
-struct InstLocalSetHint {
+pub struct InstLocalSetHint {
     frame: StackFrameHint,
     val: Fr,
     old_val: Fr,
@@ -1022,12 +1022,12 @@ pub fn execute_global_get(cs: ConstraintSystemRef<Fr>, params: &Params, mach: &M
     mach
 }
 
-struct InstGlobalGet {
+pub struct InstGlobalGet {
     val: FpVar<Fr>,
     proof: Proof,
 }
 
-struct InstGlobalGetHint {
+pub struct InstGlobalGetHint {
     val: Fr,
     proof: Proof,
 }
@@ -1071,14 +1071,14 @@ pub fn execute_global_set(cs: ConstraintSystemRef<Fr>, params: &Params, mach: &M
     mach
 }
 
-struct InstGlobalSet {
+pub struct InstGlobalSet {
     val: FpVar<Fr>,
     old_val: FpVar<Fr>,
     proof: Proof,
     mod_proof: Proof,
 }
 
-struct InstGlobalSetHint {
+pub struct InstGlobalSetHint {
     val: Fr,
     old_val: Fr,
     proof: Proof,
@@ -1134,14 +1134,14 @@ pub fn execute_init_frame(params: &Params, mach: &MachineWithStack, returnPc: &V
     mach
 }
 
-struct InstInitFrame {
+pub struct InstInitFrame {
     val1: FpVar<Fr>,
     val2: FpVar<Fr>,
     val3: FpVar<Fr>,
     return_pc: Value,
 }
 
-struct InstInitFrameHint {
+pub struct InstInitFrameHint {
     val1: Fr,
     val2: Fr,
     val3: Fr,
@@ -1185,7 +1185,7 @@ impl InstInitFrameHint {
 in the end, maybe just select a valid alternative
 */
 
-enum InstProof {
+pub enum InstProof {
     ConstI32(InstConstHint),
     ConstI64(InstConstHint),
     ConstF32(InstConstHint),

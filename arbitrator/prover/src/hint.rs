@@ -1,10 +1,22 @@
-use crate::circuit::{MachineHint,ModuleHint};
+use crate::circuit::{MachineHint,ModuleHint,InstructionHint,InstProof,InstDropHint};
 use crate::machine::{PoseidonMachine,GenModule};
 use ark_bls12_381::Fr;
 use crate::circuit::hash::Poseidon;
 use crate::circuit::hash::FrHash;
 use crate::machine::{gen_hash_stack_frame_stack, gen_hash_pc_stack, gen_hash_value_stack};
 use crate::merkle::{GenMerkle,MerkleType};
+use crate::circuit::hash::Proof;
+use crate::wavm::Opcode;
+
+struct Witness {
+    machine_hint: MachineHint,
+    proof: InstProof,
+    inst: InstructionHint,
+    mole: ModuleHint,
+    mod_proof: Proof,
+    inst_proof: Proof,
+    func_proof: Proof,
+}
 
 impl PoseidonMachine {
     fn hint(&self) -> MachineHint {
@@ -19,6 +31,28 @@ impl PoseidonMachine {
             functionIdx: Fr::from(self.pc.func as u64),
             functionPc: Fr::from(self.pc.inst as u64),
             modulesRoot: self.get_modules_root().into(),
+        }
+    }
+
+    fn witness(&self) -> Option<Witness> {
+        // get op
+        let params = Params::new();
+        let inst = self.get_next_instruction().unwrap();
+        match inst.opcode {
+            Opcode::Drop => {
+                let mut mach = self.clone();
+                let v = mach.value_stack.pop().unwrap();
+                let machine_hint = mach.hint();
+                let proof = InstDropHint {
+                    val: v.hint().hash(&params),
+                };
+                Some(Witness {
+                    machine_hint,
+                    proof: InstProof::InstDrop(proof),
+                    inst: inst.hint(),
+                })
+            }
+            _ => None,
         }
     }
 }
