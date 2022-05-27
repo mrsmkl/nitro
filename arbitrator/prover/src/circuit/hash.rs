@@ -144,6 +144,12 @@ impl Into<Vec<u8>> for FrHash {
     }
 }
 
+impl Into<Fr> for FrHash {
+    fn into(self) -> Fr {
+        self.hash.clone()
+    }
+}
+
 impl HashResult for FrHash {
 }
 

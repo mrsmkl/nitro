@@ -37,16 +37,16 @@ pub struct Machine {
 
 #[derive(Debug, Clone)]
 pub struct MachineHint {
-    valueStack : Fr,
-    internalStack : Fr,
-    blockStack : Fr,
-    frameStack : Fr,
+    pub valueStack : Fr,
+    pub internalStack : Fr,
+    pub blockStack : Fr,
+    pub frameStack : Fr,
 
-    globalStateHash : Fr,
-    moduleIdx : Fr,
-    functionIdx : Fr,
-    functionPc : Fr,
-    modulesRoot : Fr,
+    pub globalStateHash : Fr,
+    pub moduleIdx : Fr,
+    pub functionIdx : Fr,
+    pub functionPc : Fr,
+    pub modulesRoot : Fr,
 }
 
 fn witness(cs: &ConstraintSystemRef<Fr>, default: &Fr) -> FpVar<Fr> {
@@ -107,11 +107,11 @@ pub struct Module {
 }
 
 pub struct ModuleHint {
-    globalsMerkleRoot: Fr,
-    moduleMemory: Fr,
-    tablesMerkleRoot: Fr,
-    functionsMerkleRoot: Fr,
-    internalsOffset: Fr,
+    pub globalsMerkleRoot: Fr,
+    pub moduleMemory: Fr,
+    pub tablesMerkleRoot: Fr,
+    pub functionsMerkleRoot: Fr,
+    pub internalsOffset: Fr,
 }
 
 impl ModuleHint {

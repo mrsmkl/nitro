@@ -83,6 +83,7 @@ pub mod utils;
 mod value;
 pub mod wavm;
 pub mod circuit;
+pub mod hint;
 
 use crate::machine::{argument_data_to_inbox, Machine};
 use eyre::Result;
