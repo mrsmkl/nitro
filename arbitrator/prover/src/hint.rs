@@ -9,7 +9,8 @@ use crate::circuit::hash::Proof;
 use crate::wavm::Opcode;
 use crate::circuit::hash::Params;
 
-struct Witness {
+#[derive(Debug,Clone)]
+pub struct Witness {
     machine_hint: MachineHint,
     proof: InstProof,
     inst: InstructionHint,
@@ -34,7 +35,7 @@ fn make_proof(loc: usize, proof: Vec<FrHash>) -> Proof {
 }
 
 impl PoseidonMachine {
-    fn hint(&self) -> MachineHint {
+    pub fn hint(&self) -> MachineHint {
         MachineHint {
             valueStack: gen_hash_value_stack::<FrHash,Poseidon>(&self.value_stack).into(),
             internalStack: gen_hash_value_stack::<FrHash,Poseidon>(&self.internal_stack).into(),
@@ -49,7 +50,7 @@ impl PoseidonMachine {
         }
     }
 
-    fn witness(&self) -> Option<Witness> {
+    pub fn witness(&self) -> Option<Witness> {
         // get op
         let params = Params::new();
         let inst = self.get_next_instruction().unwrap();

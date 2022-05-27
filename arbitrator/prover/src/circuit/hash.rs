@@ -19,6 +19,8 @@ use ark_r1cs_std::boolean::Boolean;
 use crate::{Hasher,HashResult};
 use serde::{Serialize,Deserialize};
 use crate::Bytes32;
+use sha3::Keccak256;
+use digest::Digest;
 
 #[derive(Debug,Clone,Default,Eq,PartialEq/*,Serialize,Deserialize*/)]
 pub struct Params {
@@ -26,18 +28,26 @@ pub struct Params {
     m: Vec<Vec<Fr>>,
 }
 
+fn keccak(arg: Bytes32) -> Bytes32 {
+    let mut hasher = Keccak256::new();
+    hasher.update(arg);
+    hasher.finalize().into()
+}
+
 impl Params {
-    pub fn new() -> Self {
-        let mut test_rng = ark_std::test_rng();
+    pub const fn new() -> Self {
+        let mut rng = Bytes32::default();
         let mut c = vec![];
         for _i in 0..1000 {
-            c.push(Fr::rand(&mut test_rng))
+            rng = keccak(rng);
+            c.push(vec_to_fr(&rng.clone().into()))
         }
         let mut m = vec![];
         for _i in 0..20 {
             let mut a = vec![];
             for _j in 0..20 {
-                a.push(Fr::rand(&mut test_rng))
+                rng = keccak(rng);
+                a.push(vec_to_fr(&rng.clone().into()))
             }
             m.push(a)
         }
@@ -153,7 +163,7 @@ impl Into<Fr> for FrHash {
 impl HashResult for FrHash {
 }
 
-fn vec_to_fr(v: &[u8]) -> Fr {
+fn vec_to_fr(v: &Vec<u8>) -> Fr {
     let mut res = Fr::from(0);
     for e in v.iter() {
         res = res*Fr::from(256) + Fr::from(*e);
@@ -188,7 +198,7 @@ impl Hasher<FrHash> for Poseidon {
         self.elems.push(vec_to_fr(&v))
     }
     fn update_vec(&mut self, arg: &[u8]) {
-        self.elems.push(vec_to_fr(arg))
+        self.elems.push(vec_to_fr(&arg.to_vec()))
     }
     fn result(&mut self) -> FrHash {
         let res = poseidon(&self.params, self.elems.clone());

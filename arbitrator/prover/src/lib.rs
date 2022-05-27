@@ -2,6 +2,7 @@
 // For license information, see https://github.com/nitro/blob/master/LICENSE
 
 #![allow(clippy::missing_safety_doc)] // We have a lot of unsafe ABI
+#![feature(const_for)]
 
 use serde::{Serialize, Deserialize};
 use core::fmt::Debug;

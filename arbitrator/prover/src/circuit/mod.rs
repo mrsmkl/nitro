@@ -106,6 +106,7 @@ pub struct Module {
     internalsOffset: FpVar<Fr>,
 }
 
+#[derive(Debug,Clone)]
 pub struct ModuleHint {
     pub globalsMerkleRoot: Fr,
     pub moduleMemory: Fr,
@@ -410,6 +411,7 @@ trait InstCS {
     }
 }
 
+#[derive(Debug,Clone)]
 pub struct InstConstHint {
 }
 
@@ -484,6 +486,7 @@ pub fn execute_drop(_params: &Params, mach: &MachineWithStack) -> MachineWithSta
     mach
 }
 
+#[derive(Debug,Clone)]
 pub struct InstDropHint {
     pub val: Fr,
 }
@@ -544,6 +547,7 @@ struct InstSelect {
     val3: FpVar<Fr>,
 }
 
+#[derive(Debug,Clone)]
 pub struct InstSelectHint {
     val1: Fr,
     val2: Fr,
@@ -588,6 +592,7 @@ pub fn execute_block(_params: &Params, mach: &MachineWithStack) -> MachineWithSt
     mach
 }
 
+#[derive(Debug,Clone)]
 pub struct InstBlockHint {
 }
 
@@ -625,6 +630,7 @@ pub struct InstBranch {
     block: FpVar<Fr>,
 }
 
+#[derive(Debug,Clone)]
 pub struct InstBranchHint {
     val: Fr,
     block: Fr,
@@ -678,6 +684,7 @@ pub struct InstBranchIf {
     block: FpVar<Fr>,
 }
 
+#[derive(Debug,Clone)]
 pub struct InstBranchIfHint {
     val1: Fr,
     val2: Fr,
@@ -782,6 +789,7 @@ pub fn execute_return(params: &Params, mach: &MachineWithStack, frame: &StackFra
     mach
 }
 
+#[derive(Debug,Clone)]
 pub struct InstReturnHint {
     pub frame: StackFrameHint,
 }
@@ -842,6 +850,7 @@ pub struct InstCall {
     frame: StackFrame,
 }
 
+#[derive(Debug,Clone)]
 pub struct InstCallHint {
     frame: StackFrameHint,
 }
@@ -881,6 +890,7 @@ pub fn execute_cross_module_call(params: &Params, mach: &MachineWithStack) -> Ma
 pub struct InstCrossCall {
 }
 
+#[derive(Debug,Clone)]
 pub struct InstCrossCallHint {
 }
 
@@ -919,6 +929,7 @@ pub struct InstLocalGet {
     proof: Proof,
 }
 
+#[derive(Debug,Clone)]
 pub struct InstLocalGetHint {
     frame: StackFrameHint,
     val: Fr,
@@ -975,6 +986,7 @@ pub struct InstLocalSet {
     proof: Proof,
 }
 
+#[derive(Debug,Clone)]
 pub struct InstLocalSetHint {
     frame: StackFrameHint,
     val: Fr,
@@ -1027,6 +1039,7 @@ pub struct InstGlobalGet {
     proof: Proof,
 }
 
+#[derive(Debug,Clone)]
 pub struct InstGlobalGetHint {
     val: Fr,
     proof: Proof,
@@ -1078,6 +1091,7 @@ pub struct InstGlobalSet {
     mod_proof: Proof,
 }
 
+#[derive(Debug,Clone)]
 pub struct InstGlobalSetHint {
     val: Fr,
     old_val: Fr,
@@ -1141,6 +1155,7 @@ pub struct InstInitFrame {
     return_pc: Value,
 }
 
+#[derive(Debug,Clone)]
 pub struct InstInitFrameHint {
     val1: Fr,
     val2: Fr,
@@ -1185,6 +1200,7 @@ impl InstInitFrameHint {
 in the end, maybe just select a valid alternative
 */
 
+#[derive(Debug,Clone)]
 pub enum InstProof {
     ConstI32(InstConstHint),
     ConstI64(InstConstHint),

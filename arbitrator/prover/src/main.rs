@@ -314,6 +314,7 @@ fn main() -> Result<()> {
                 next_inst.argument_data,
             );
             std::io::stdout().flush().unwrap();
+            println!("\nWitness: {:?}", mach.witness());
             let before = mach.hash().clone();
             if !seen_states.insert(before.clone()) {
                 break;
