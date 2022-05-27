@@ -67,7 +67,7 @@ pub struct GenFunction<T: Debug + Clone + PartialEq + Eq + Default + Into<Vec<u8
     code: Vec<Instruction>,
     ty: FunctionType,
     #[serde(skip)]
-    code_merkle: GenMerkle<T,H>,
+    pub code_merkle: GenMerkle<T,H>,
     local_types: Vec<ArbValueType>,
 }
 
@@ -2017,7 +2017,7 @@ impl <T: HashResult + serde::de::DeserializeOwned, H: Hasher<T> + serde::de::Des
         self.status
     }
 
-    fn get_modules_merkle(&self) -> Cow<GenMerkle<T,H>> {
+    pub fn get_modules_merkle(&self) -> Cow<GenMerkle<T,H>> {
         if let Some(merkle) = &self.modules_merkle {
             Cow::Borrowed(merkle)
         } else {

@@ -7,6 +7,7 @@ use crate::machine::{gen_hash_stack_frame_stack, gen_hash_pc_stack, gen_hash_val
 use crate::merkle::{GenMerkle,MerkleType};
 use crate::circuit::hash::Proof;
 use crate::wavm::Opcode;
+use crate::circuit::hash::Params;
 
 struct Witness {
     machine_hint: MachineHint,
@@ -16,6 +17,20 @@ struct Witness {
     mod_proof: Proof,
     inst_proof: Proof,
     func_proof: Proof,
+}
+
+fn make_proof(loc: usize, proof: Vec<FrHash>) -> Proof {
+    let mut selectors = vec![];
+    let mut loc = loc;
+    for _el in proof.iter() {
+        let bit = loc % 2 == 0;
+        selectors.push(bit);
+        loc = loc/2;
+    }
+    Proof {
+        path: proof.iter().map(|a| a.clone().into()).collect(),
+        selectors,
+    }
 }
 
 impl PoseidonMachine {
@@ -38,6 +53,11 @@ impl PoseidonMachine {
         // get op
         let params = Params::new();
         let inst = self.get_next_instruction().unwrap();
+        let mole = self.modules[self.pc.module].clone();
+        let mod_proof = make_proof(self.pc.module, self.get_modules_merkle().prove_gen(self.pc.module).unwrap());
+        let func = &mole.funcs[self.pc.func];
+        let inst_proof = make_proof(self.pc.inst, func.code_merkle.prove_gen(self.pc.inst).unwrap());
+        let func_proof = make_proof(self.pc.func, mole.funcs_merkle.prove_gen(self.pc.func).unwrap());
         match inst.opcode {
             Opcode::Drop => {
                 let mut mach = self.clone();
@@ -48,8 +68,12 @@ impl PoseidonMachine {
                 };
                 Some(Witness {
                     machine_hint,
-                    proof: InstProof::InstDrop(proof),
+                    proof: InstProof::Drop(proof),
                     inst: inst.hint(),
+                    mole: mole.hint(),
+                    mod_proof,
+                    func_proof,
+                    inst_proof,
                 })
             }
             _ => None,

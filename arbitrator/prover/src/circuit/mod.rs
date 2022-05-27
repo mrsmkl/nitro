@@ -485,7 +485,7 @@ pub fn execute_drop(_params: &Params, mach: &MachineWithStack) -> MachineWithSta
 }
 
 pub struct InstDropHint {
-    val: Fr,
+    pub val: Fr,
 }
 
 pub struct InstDrop {
@@ -508,7 +508,7 @@ impl Inst for InstDrop {
 impl InstDropHint {
     pub fn default() -> Self {
         InstDropHint {
-            val: 0,
+            val: Fr::from(0),
         }
     }
     fn convert(&self, cs: &ConstraintSystemRef<Fr>) -> InstDrop {
