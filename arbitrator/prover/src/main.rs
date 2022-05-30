@@ -314,7 +314,13 @@ fn main() -> Result<()> {
                 next_inst.argument_data,
             );
             std::io::stdout().flush().unwrap();
-            println!("\nWitness: {:?}", mach.witness());
+            match mach.witness() {
+                Some(w) => {
+                    println!("\nWitness: {:?}", w);
+                    prover::circuit::test(w)
+                }
+                None => {},
+            };
             let before = mach.hash().clone();
             if !seen_states.insert(before.clone()) {
                 break;
@@ -323,6 +329,7 @@ fn main() -> Result<()> {
             mach.step_n(1)?;
             let after = mach.hash();
             println!(" - done");
+            println!("before {}, after {}", before, after);
             proofs.push(ProofInfo {
                 before: before.to_string(),
                 proof: hex::encode(proof),

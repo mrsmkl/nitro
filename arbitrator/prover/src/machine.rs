@@ -141,9 +141,10 @@ impl <T: Debug + Clone + PartialEq + Eq + Default + Into<Vec<u8>>, H: Hasher<T>>
         }
     }
 
-    fn hash(&self) -> T {
+    pub fn hash(&self) -> T {
         let mut h = H::make();
         h.update_title(b"Function:");
+        // println!("func code root {}", self.code_merkle.root());
         h.update_hash(&self.code_merkle.root());
         h.result()
     }
@@ -546,7 +547,7 @@ impl<T: HashResult, H: Hasher<T>> GenModule<T,H> {
         })
     }
 
-    fn hash(&self) -> T {
+    pub fn hash(&self) -> T {
         let mut h = H::make();
         h.update_title(b"Module:");
         let merkle : GenMerkle<T,H> = GenMerkle::new(

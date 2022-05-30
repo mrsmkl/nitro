@@ -8,23 +8,13 @@ use crate::merkle::{GenMerkle,MerkleType};
 use crate::circuit::hash::Proof;
 use crate::wavm::Opcode;
 use crate::circuit::hash::Params;
-
-#[derive(Debug,Clone)]
-pub struct Witness {
-    machine_hint: MachineHint,
-    proof: InstProof,
-    inst: InstructionHint,
-    mole: ModuleHint,
-    mod_proof: Proof,
-    inst_proof: Proof,
-    func_proof: Proof,
-}
+use crate::circuit::Witness;
 
 fn make_proof(loc: usize, proof: Vec<FrHash>) -> Proof {
     let mut selectors = vec![];
     let mut loc = loc;
     for _el in proof.iter() {
-        let bit = loc % 2 == 0;
+        let bit = loc % 2 != 0;
         selectors.push(bit);
         loc = loc/2;
     }
@@ -55,6 +45,7 @@ impl PoseidonMachine {
         let params = Params::new();
         let inst = self.get_next_instruction().unwrap();
         let mole = self.modules[self.pc.module].clone();
+        println!("module hash {}", mole.hash());
         let mod_proof = make_proof(self.pc.module, self.get_modules_merkle().prove_gen(self.pc.module).unwrap());
         let func = &mole.funcs[self.pc.func];
         let inst_proof = make_proof(self.pc.inst, func.code_merkle.prove_gen(self.pc.inst).unwrap());
@@ -90,6 +81,7 @@ impl PoseidonModule {
             MerkleType::Value,
             self.globals.iter().map(|v| v.gen_hash::<FrHash,Poseidon>()).collect(),
         );
+        println!("func hash {}", self.funcs[0].hash());
         ModuleHint {
             globalsMerkleRoot: merkle.root().into(),
             moduleMemory: self.memory.hash().into(),

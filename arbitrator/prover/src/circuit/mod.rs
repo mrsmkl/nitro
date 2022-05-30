@@ -7,19 +7,16 @@ use ark_bls12_381::Fr;
 // use ark_relations::r1cs::SynthesisError;
 use ark_relations::r1cs::ConstraintSystemRef;
 use ark_r1cs_std::eq::EqGadget;
-// use ark_sponge::poseidon::PoseidonParameters;
 use ark_r1cs_std::boolean::{ /*AllocatedBool,*/Boolean};
 use ark_r1cs_std::fields::FieldVar;
 use ark_r1cs_std::ToBitsGadget;
 
-/*
-use crate::{VM,Transition,hash_code};
-use crate::InstructionCircuit;
-*/
 use crate::circuit::hash::{Params, poseidon_gadget, Proof, make_path, poseidon};
 
 pub mod hash;
 pub mod keccak;
+
+use ark_r1cs_std::R1CSVar;
 
 #[derive(Debug, Clone)]
 pub struct Machine {
@@ -241,14 +238,24 @@ pub fn prove_instr(
     func_proof: &Proof,
 ) {
     let mole_hash = hash_module(params, mole);
+    println!("Module hash {}", mole_hash.value().unwrap());
     let (mole_root, mole_idx) = make_path(cs.clone(), 16, params, mole_hash, mod_proof);
     mole_root.enforce_equal(&machine.modulesRoot).unwrap();
+    println!("Module root {}, idx {}, got {}, got idx {}",
+        machine.modulesRoot.value().unwrap(), machine.moduleIdx.value().unwrap(),
+        mole_root.value().unwrap(), mole_idx.value().unwrap());
     mole_idx.enforce_equal(&machine.moduleIdx).unwrap();
+    println!("Inst hash {} at {}", inst_var.value().unwrap(), machine.functionPc.value().unwrap());
     let (inst_root, inst_idx) = make_path(cs.clone(), 20, params, inst_var.clone(), inst_proof);
     inst_idx.enforce_equal(&machine.functionPc).unwrap();
-    let (func_root, func_idx) = make_path(cs.clone(), 16, params, inst_root, func_proof);
+    println!("Inst root {}, inst idx {}", inst_root.value().unwrap(), inst_idx.value().unwrap());
+    let func_hash = poseidon_gadget(&params, vec![inst_root]);
+    println!("Func hash {}", func_hash.value().unwrap());
+    let (func_root, func_idx) = make_path(cs.clone(), 16, params, func_hash, func_proof);
     func_root.enforce_equal(&mole.functionsMerkleRoot).unwrap();
     func_idx.enforce_equal(&machine.functionIdx).unwrap();
+    println!("func root {}, got {}", mole.functionsMerkleRoot.value().unwrap(), func_root.value().unwrap());
+    println!("func idx {}, got {}", machine.functionIdx.value().unwrap(), func_idx.value().unwrap());
 }
 
 #[derive(Debug, Clone)]
@@ -1360,7 +1367,7 @@ fn make_proof(
     mod_proof: &Proof,
     inst_proof: &Proof,
     func_proof: &Proof
-) -> (FpVar<Fr>, FpVar<Fr>) {
+) /* -> (FpVar<Fr>, FpVar<Fr>) */ {
     let base_machine = machine_hint.convert(cs.clone());
     let inst = convert_instruction(inst, cs.clone());
     let mole = mole.convert(cs.clone());
@@ -1378,6 +1385,8 @@ fn make_proof(
         inst_proof,
         func_proof,
     );
+
+    /*
 
     let base_machine = intro_stack(&base_machine, &inst, &mole);
     let witness = proof_to_witness(proof, cs.clone());
@@ -1418,24 +1427,37 @@ fn make_proof(
         global_set,
         init_frame,
     ])
+    */
 }
 
-pub fn test() {
+
+#[derive(Debug,Clone)]
+pub struct Witness {
+    pub machine_hint: MachineHint,
+    pub proof: InstProof,
+    pub inst: InstructionHint,
+    pub mole: ModuleHint,
+    pub mod_proof: Proof,
+    pub inst_proof: Proof,
+    pub func_proof: Proof,
+}
+
+pub fn test(w: Witness) {
     use ark_relations::r1cs::ConstraintSystem;
     let cs_sys = ConstraintSystem::<Fr>::new();
     let cs = ConstraintSystemRef::new(cs_sys);
     let params = Params::new();
-    let (_before, _after) = make_proof(
+    /* let (before, after) = */ make_proof(
         cs.clone(),
         &params,
-        &MachineHint::default(),
-        InstProof::Drop(InstDropHint::default()),
-        InstructionHint::default(),
-        &ModuleHint::default(),
-        &Proof::default(),
-        &Proof::default(),
-        &Proof::default(),
+        &w.machine_hint,
+        w.proof,
+        w.inst,
+        &w.mole,
+        &w.mod_proof,
+        &w.inst_proof,
+        &w.func_proof,
     );
-    println!("constraints {}", cs.num_constraints());
+    println!("constraints {} {}", cs.num_constraints(), cs.is_satisfied().unwrap());
 }
 

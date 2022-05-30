@@ -35,6 +35,7 @@ fn keccak(arg: Bytes32) -> Bytes32 {
 }
 
 impl Params {
+    /*
     pub const fn new() -> Self {
         let mut rng = Bytes32::default();
         let mut c = vec![];
@@ -48,6 +49,24 @@ impl Params {
             for _j in 0..20 {
                 rng = keccak(rng);
                 a.push(vec_to_fr(&rng.clone().into()))
+            }
+            m.push(a)
+        }
+        Params { c, m }
+    }*/
+    pub fn new() -> Self {
+        let mut rng = 0u64;
+        let mut c = vec![];
+        for _i in 0..1000 {
+            rng = rng + 2;
+            c.push(Fr::from(rng))
+        }
+        let mut m = vec![];
+        for _i in 0..20 {
+            let mut a = vec![];
+            for _j in 0..20 {
+                rng = rng + 2;
+                a.push(Fr::from(rng))
             }
             m.push(a)
         }
@@ -296,7 +315,7 @@ pub fn make_path(cs: ConstraintSystemRef<Fr>, num: usize, params : &Params, elem
         let sel_bool = Boolean::from(AllocatedBool::<Fr>::new_witness(cs.clone(), || Ok(sel)).unwrap());
         let skip_bool = Boolean::from(AllocatedBool::<Fr>::new_witness(cs.clone(), || Ok(skip)).unwrap()); // these might need a correctness check (perhaps not)
         let new_idx = idx.clone() + sel_bool.select(&pow2, &FpVar::constant(Fr::from(0))).unwrap();
-        let new_pow2 = pow2.clone() * pow2.clone();
+        let new_pow2 = pow2.clone() + pow2.clone();
 
         let elem_var = FpVar::Var(AllocatedFp::<Fr>::new_witness(cs.clone(), || Ok(elem.clone())).unwrap());
         let leaf1 = sel_bool.select(&elem_var, &acc).unwrap();
