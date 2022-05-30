@@ -377,8 +377,6 @@ pub fn change_module(cs: ConstraintSystemRef<Fr>, params: &Params, mach: &Machin
 
     let old_mole_hash = hash_module(params, &old_mole);
     let (old_mole_root, old_mole_idx) = make_path(cs.clone(), 16, params, old_mole_hash, mod_proof);
-    mole_root.enforce_equal(&mach.modulesRoot).unwrap();
-    mole_idx.enforce_equal(&mach.moduleIdx).unwrap();
 
     let mut mach = mach.clone();
     mach.valid = mach.valid.and(&old_mole_idx.is_eq(&mach.moduleIdx).unwrap()).unwrap();
@@ -504,7 +502,7 @@ pub struct InstDrop {
 
 impl Inst for InstDrop {
     fn code() -> u32 {
-        12
+        0x1A
     }
     fn execute_internal(&self, params: &Params, mach: &MachineWithStack) -> (MachineWithStack, MachineWithStack) {
         let mut mach = mach.clone();
@@ -1144,7 +1142,7 @@ pub fn execute_init_frame(params: &Params, mach: &MachineWithStack, returnPc: &V
     let callerModuleInternals = mach.valueStack.pop();
     let callerModule = mach.valueStack.pop();
     let returnPcHash = mach.valueStack.pop();
-    hash_value(params, &returnPc).enforce_equal(&returnPcHash).unwrap();
+    mach.valid = mach.valid.and(&hash_value(params, &returnPc).is_eq(&returnPcHash).unwrap()).unwrap();
     let frame = StackFrame {
         callerModuleInternals,
         callerModule,
@@ -1367,7 +1365,7 @@ fn make_proof(
     mod_proof: &Proof,
     inst_proof: &Proof,
     func_proof: &Proof
-) /* -> (FpVar<Fr>, FpVar<Fr>) */ {
+) -> (FpVar<Fr>, FpVar<Fr>) {
     let base_machine = machine_hint.convert(cs.clone());
     let inst = convert_instruction(inst, cs.clone());
     let mole = mole.convert(cs.clone());
@@ -1385,8 +1383,6 @@ fn make_proof(
         inst_proof,
         func_proof,
     );
-
-    /*
 
     let base_machine = intro_stack(&base_machine, &inst, &mole);
     let witness = proof_to_witness(proof, cs.clone());
@@ -1427,9 +1423,7 @@ fn make_proof(
         global_set,
         init_frame,
     ])
-    */
 }
-
 
 #[derive(Debug,Clone)]
 pub struct Witness {
