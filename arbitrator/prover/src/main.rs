@@ -307,7 +307,7 @@ fn main() -> Result<()> {
         } else {
             println!("Machine stack: {:?}", mach.get_data_stack());
             print!(
-                "Generating proof \x1b[36m#{}\x1b[0m (inst \x1b[36m#{}\x1b[0m) of opcode \x1b[32m{:?}\x1b[0m with data 0x{:x}",
+                "Generating proof \x1b[36m#{}\x1b[0m (inst \x1b[36m#{}\x1b[0m) of opcode \x1b[32m{:?}\x1b[0m with data 0x{:x}\n\n\n",
                 proofs.len(),
                 mach.get_steps(),
                 next_opcode,
@@ -316,7 +316,7 @@ fn main() -> Result<()> {
             std::io::stdout().flush().unwrap();
             match mach.witness() {
                 Some(w) => {
-                    println!("\nWitness: {:?}", w);
+                    // println!("\nWitness: {:?}", w);
                     prover::circuit::test(w)
                 }
                 None => {},

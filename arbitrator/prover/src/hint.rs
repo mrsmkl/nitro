@@ -1,6 +1,7 @@
 use crate::circuit::{
     MachineHint,ModuleHint,InstructionHint,InstProof,InstDropHint,InstConstHint,InstLocalGetHint,
     StackFrameHint,
+    InstLocalSetHint,
 };
 use crate::machine::{PoseidonMachine,GenModule,StackFrame};
 use ark_bls12_381::Fr;
@@ -95,7 +96,6 @@ impl PoseidonMachine {
                     inst_proof,
                 })
             }
-            */
             Opcode::LocalGet => {
                 println!("module hash {}", mole.hash());
                 let mut mach = self.clone();
@@ -123,6 +123,42 @@ impl PoseidonMachine {
                 Some(Witness {
                     machine_hint,
                     proof: InstProof::LocalGet(proof),
+                    inst: inst.hint(),
+                    mole: mole.hint(),
+                    mod_proof,
+                    func_proof,
+                    inst_proof,
+                })
+            }
+            */
+            Opcode::LocalSet => {
+                let mut mach = self.clone();
+                let orig_hint = mach.hint();
+                let idx = inst.argument_data as usize;
+                let frame = mach.frame_stack.pop().unwrap();
+                let locals_merkle: GenMerkle<FrHash,Poseidon> = GenMerkle::new(
+                    MerkleType::Value,
+                    frame.locals.iter().map(|v| v.gen_hash::<FrHash,Poseidon>()).collect()
+                );
+                let merkle_proof = make_proof(idx, locals_merkle.prove_gen(idx).unwrap());
+                let old_v = frame.locals[idx];
+                let v = mach.value_stack.pop().unwrap();
+                let machine_hint = mach.hint();
+                println!("local set idx {}, old val {}, new val {}", idx, old_v.hint().hash(&params), v.hint().hash(&params));
+                println!("value stack {} orig {}", machine_hint.valueStack, orig_hint.valueStack);
+                println!("internal stack {}", machine_hint.internalStack);
+                println!("block stack {}", machine_hint.blockStack);
+                println!("frame stack {} orig {}", machine_hint.frameStack, orig_hint.frameStack);
+                println!("frame hash {}", frame.hash::<FrHash,Poseidon>());
+                let proof = InstLocalSetHint {
+                    val: v.hint().hash(&params),
+                    old_val: old_v.hint().hash(&params),
+                    proof: merkle_proof,
+                    frame: frame.hint(),
+                };
+                Some(Witness {
+                    machine_hint,
+                    proof: InstProof::LocalSet(proof),
                     inst: inst.hint(),
                     mole: mole.hint(),
                     mod_proof,

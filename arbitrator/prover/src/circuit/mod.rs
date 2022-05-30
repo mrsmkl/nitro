@@ -271,7 +271,9 @@ pub fn hash_stack(
 ) -> FpVar<Fr> {
     // compute root from base
     let mut root = stack.base.clone();
+    // println!("do hash -----------------------------------");
     for el in stack.values.iter() {
+        // println!("hashing stack {} {}", el.value().unwrap(), root.value().unwrap());
         root = poseidon_gadget(&params, vec![
             el.clone(),
             root.clone(),
@@ -969,7 +971,6 @@ impl InstCS for InstLocalGet {
     fn execute_internal(&self, cs: ConstraintSystemRef<Fr>, params: &Params, mach: &MachineWithStack) -> (MachineWithStack, MachineWithStack) {
         let mut mach = mach.clone();
         let frame_hash = hash_stack_frame(&params, &self.frame);
-        println!("Frame hash {}, bare stack {}", frame_hash.value().unwrap(), mach.frameStack.base.value().unwrap());
         mach.frameStack.push(frame_hash);
         let before = mach.clone();
         let after = execute_local_get(cs.clone(), params, &mach, &self.proof, self.val.clone(), &self.frame);
@@ -994,18 +995,19 @@ impl InstLocalGetHint {
     }
 }
 
-pub fn execute_local_set(cs: ConstraintSystemRef<Fr>, params: &Params, mach: &MachineWithStack, inst: &Instruction, proof: &Proof, old_var: &FpVar<Fr>, frame: &StackFrame) -> MachineWithStack {
+pub fn execute_local_set(cs: ConstraintSystemRef<Fr>, params: &Params, mach: &MachineWithStack, proof: &Proof, old_var: &FpVar<Fr>, frame: &StackFrame) -> MachineWithStack {
     let mut mach = mach.clone();
     let var = mach.valueStack.pop();
     let (root, idx) = make_path(cs.clone(), 20, params, old_var.clone(), proof);
     mach.frameStack.pop().enforce_equal(&hash_stack_frame(params, frame)).unwrap();
     mach.valid = mach.valid.and(&root.is_eq(&frame.localsMerkleRoot).unwrap()).unwrap();
-    mach.valid = mach.valid.and(&idx.is_eq(&inst.argumentData).unwrap()).unwrap();
+    mach.valid = mach.valid.and(&idx.is_eq(&mach.inst.argumentData).unwrap()).unwrap();
     let (root2, idx2) = make_path(cs.clone(), 20, params, var.clone(), proof);
     idx2.enforce_equal(&idx).unwrap();
     let mut frame = frame.clone();
     frame.localsMerkleRoot = root2;
-    mach.frameStack.push(hash_stack_frame(params, &frame));
+    let frame_hash = hash_stack_frame(params, &frame);
+    mach.frameStack.push(frame_hash);
     mach.functionPc = mach.functionPc.clone() + FpVar::constant(Fr::from(1));
     mach
 }
@@ -1019,20 +1021,29 @@ pub struct InstLocalSet {
 
 #[derive(Debug,Clone)]
 pub struct InstLocalSetHint {
-    frame: StackFrameHint,
-    val: Fr,
-    old_val: Fr,
-    proof: Proof,
+    pub frame: StackFrameHint,
+    pub val: Fr,
+    pub old_val: Fr,
+    pub proof: Proof,
 }
 
 impl InstCS for InstLocalSet {
     fn code(&self) -> u32 { 0x21 }
     fn execute_internal(&self, cs: ConstraintSystemRef<Fr>, params: &Params, mach: &MachineWithStack) -> (MachineWithStack, MachineWithStack) {
         let mut mach = mach.clone();
-        mach.frameStack.push(hash_stack_frame(&params, &self.frame));
-        mach.valueStack.push(self.old_val.clone());
+        let frame_hash = hash_stack_frame(&params, &self.frame);
+        println!("Frame hash {}, bare stack {}", frame_hash.value().unwrap(), mach.frameStack.base.value().unwrap());
+        mach.frameStack.push(frame_hash);
+        println!("old val {}, base value stack {}", self.old_val.value().unwrap(), mach.valueStack.base.value().unwrap());
+        mach.valueStack.push(self.val.clone());
         let before = mach.clone();
-        let after = execute_local_get(cs.clone(), params, &mach, &self.proof, self.val.clone(), &self.frame);
+        let before_elim = elim_stack(params, &before);
+        println!(
+            "before frame stack {}, value {}",
+            before_elim.frameStack.value().unwrap(),
+            before_elim.valueStack.value().unwrap(),
+        );
+        let after = execute_local_set(cs.clone(), params, &mach, &self.proof, &self.old_val.clone(), &self.frame);
         (before, after)
     }
 }
