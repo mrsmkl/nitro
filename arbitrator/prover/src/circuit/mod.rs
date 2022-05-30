@@ -186,8 +186,8 @@ impl Value {
 impl ValueHint {
     pub fn hash(&self, params: &Params) -> Fr {
         poseidon(&params, vec![
-            Fr::from(self.value.clone()),
             Fr::from(self.ty.clone()),
+            Fr::from(self.value.clone()),
         ])
     }
     fn default() -> Self {
@@ -222,8 +222,8 @@ impl InstructionHint {
 
 fn hash_value(params: &Params, inst: &Value) -> FpVar<Fr> {
     poseidon_gadget(&params, vec![
-        inst.value.clone(),
         inst.ty.clone(),
+        inst.value.clone(),
     ])
 }
 
@@ -488,6 +488,7 @@ pub fn enforce_i32(v: FpVar<Fr>) {
 pub fn execute_drop(_params: &Params, mach: &MachineWithStack) -> MachineWithStack {
     let mut mach = mach.clone();
     let _popped = mach.valueStack.pop();
+    mach.functionPc = mach.functionPc.clone() + FpVar::constant(Fr::from(1));
     mach
 }
 
@@ -507,8 +508,11 @@ impl Inst for InstDrop {
     fn execute_internal(&self, params: &Params, mach: &MachineWithStack) -> (MachineWithStack, MachineWithStack) {
         let mut mach = mach.clone();
         mach.valueStack.push(self.val.clone());
+        println!("drop value {}", self.val.value().unwrap());
         let before = mach.clone();
         let after = execute_drop(params, &mach);
+        let before_elim = elim_stack(params, &before);
+        let after_elim = elim_stack(params, &after);
         (before, after)
     }
 }

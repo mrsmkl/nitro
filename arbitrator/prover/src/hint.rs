@@ -45,16 +45,21 @@ impl PoseidonMachine {
         let params = Params::new();
         let inst = self.get_next_instruction().unwrap();
         let mole = self.modules[self.pc.module].clone();
-        println!("module hash {}", mole.hash());
         let mod_proof = make_proof(self.pc.module, self.get_modules_merkle().prove_gen(self.pc.module).unwrap());
         let func = &mole.funcs[self.pc.func];
         let inst_proof = make_proof(self.pc.inst, func.code_merkle.prove_gen(self.pc.inst).unwrap());
         let func_proof = make_proof(self.pc.func, mole.funcs_merkle.prove_gen(self.pc.func).unwrap());
         match inst.opcode {
             Opcode::Drop => {
+                println!("module hash {}", mole.hash());
                 let mut mach = self.clone();
                 let v = mach.value_stack.pop().unwrap();
                 let machine_hint = mach.hint();
+                println!("value hash {}", v.gen_hash::<FrHash,Poseidon>());
+                println!("value stack {}", machine_hint.valueStack);
+                println!("internal stack {}", machine_hint.internalStack);
+                println!("block stack {}", machine_hint.blockStack);
+                println!("frame stack {}", machine_hint.frameStack);
                 let proof = InstDropHint {
                     val: v.hint().hash(&params),
                 };
