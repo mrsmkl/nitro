@@ -214,8 +214,9 @@ impl Value {
     }
 
     pub fn hint(&self) -> ValueHint {
+        use crate::circuit::hash::bytes32_to_fr;
         ValueHint {
-            value: self.contents_u64(),
+            value: bytes32_to_fr(&self.contents_for_proof()),
             ty: self.ty().serialize() as u32,
         }
     }

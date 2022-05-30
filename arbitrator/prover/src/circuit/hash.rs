@@ -182,12 +182,17 @@ impl Into<Fr> for FrHash {
 impl HashResult for FrHash {
 }
 
-fn vec_to_fr(v: &Vec<u8>) -> Fr {
+pub fn vec_to_fr(v: &Vec<u8>) -> Fr {
     let mut res = Fr::from(0);
     for e in v.iter() {
         res = res*Fr::from(256) + Fr::from(*e);
     }
     res
+}
+
+pub fn bytes32_to_fr(arg: &Bytes32) -> Fr {
+    let v : Vec<u8> = arg.clone().into();
+    vec_to_fr(&v)
 }
 
 impl Hasher<FrHash> for Poseidon {

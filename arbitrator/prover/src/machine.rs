@@ -159,7 +159,7 @@ pub struct StackFrame {
 }
 
 impl StackFrame {
-    fn hash<T: Debug + Clone + PartialEq + Eq + Default + Into<Vec<u8>>, H: Hasher<T>>(&self) -> T {
+    pub fn hash<T: Debug + Clone + PartialEq + Eq + Default + Into<Vec<u8>>, H: Hasher<T>>(&self) -> T {
         let mut h = H::make();
         h.update_title(b"Stack frame:");
         h.update_hash(&self.return_ref.gen_hash::<T,H>());

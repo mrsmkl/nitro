@@ -164,7 +164,7 @@ pub struct Value {
 
 #[derive(Debug, Clone)]
 pub struct ValueHint {
-    pub value: u64,
+    pub value: Fr,
     pub ty: u32,
 }
 
@@ -187,18 +187,18 @@ impl ValueHint {
     pub fn hash(&self, params: &Params) -> Fr {
         poseidon(&params, vec![
             Fr::from(self.ty.clone()),
-            Fr::from(self.value.clone()),
+            self.value.clone(),
         ])
     }
     fn default() -> Self {
         ValueHint {
-            value: 0,
+            value: Fr::from(0),
             ty: 0,
         }
     }
     fn convert(&self, cs: &ConstraintSystemRef<Fr>) -> Value {
         Value {
-            value: witness(cs, &Fr::from(self.value)),
+            value: witness(cs, &self.value),
             ty: witness(cs, &Fr::from(self.ty)),
         }
     }
@@ -787,8 +787,16 @@ impl StackFrameHint {
 }
 
 fn hash_stack_frame(params: &Params, frame: &StackFrame) -> FpVar<Fr> {
+    let ret = hash_value(params, &frame.returnPc);
+    println!(
+        "hashing frame ret {}, root {}, mloe {}, inter {}",
+        ret.value().unwrap(),
+        frame.localsMerkleRoot.value().unwrap(),
+        frame.callerModule.value().unwrap(),
+        frame.callerModuleInternals.value().unwrap(),
+    );
     poseidon_gadget(&params, vec![
-        hash_value(params, &frame.returnPc),
+        ret,
         frame.localsMerkleRoot.clone(),
         frame.callerModule.clone(),
         frame.callerModuleInternals.clone(),
@@ -951,16 +959,18 @@ pub struct InstLocalGet {
 
 #[derive(Debug,Clone)]
 pub struct InstLocalGetHint {
-    frame: StackFrameHint,
-    val: Fr,
-    proof: Proof,
+    pub frame: StackFrameHint,
+    pub val: Fr,
+    pub proof: Proof,
 }
 
 impl InstCS for InstLocalGet {
     fn code(&self) -> u32 { 0x20 }
     fn execute_internal(&self, cs: ConstraintSystemRef<Fr>, params: &Params, mach: &MachineWithStack) -> (MachineWithStack, MachineWithStack) {
         let mut mach = mach.clone();
-        mach.frameStack.push(hash_stack_frame(&params, &self.frame));
+        let frame_hash = hash_stack_frame(&params, &self.frame);
+        println!("Frame hash {}, bare stack {}", frame_hash.value().unwrap(), mach.frameStack.base.value().unwrap());
+        mach.frameStack.push(frame_hash);
         let before = mach.clone();
         let after = execute_local_get(cs.clone(), params, &mach, &self.proof, self.val.clone(), &self.frame);
         (before, after)
