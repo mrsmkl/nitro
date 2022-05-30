@@ -1,4 +1,4 @@
-use crate::circuit::{MachineHint,ModuleHint,InstructionHint,InstProof,InstDropHint};
+use crate::circuit::{MachineHint,ModuleHint,InstructionHint,InstProof,InstDropHint,InstConstHint};
 use crate::machine::{PoseidonMachine,GenModule};
 use ark_bls12_381::Fr;
 use crate::circuit::hash::Poseidon;
@@ -66,6 +66,24 @@ impl PoseidonMachine {
                 Some(Witness {
                     machine_hint,
                     proof: InstProof::Drop(proof),
+                    inst: inst.hint(),
+                    mole: mole.hint(),
+                    mod_proof,
+                    func_proof,
+                    inst_proof,
+                })
+            }
+            Opcode::I32Const => {
+                println!("module hash {}", mole.hash());
+                let mut mach = self.clone();
+                let machine_hint = mach.hint();
+                println!("value stack {}", machine_hint.valueStack);
+                println!("internal stack {}", machine_hint.internalStack);
+                println!("block stack {}", machine_hint.blockStack);
+                println!("frame stack {}", machine_hint.frameStack);
+                Some(Witness {
+                    machine_hint,
+                    proof: InstProof::ConstI32(InstConstHint {}),
                     inst: inst.hint(),
                     mole: mole.hint(),
                     mod_proof,

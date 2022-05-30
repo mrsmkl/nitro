@@ -399,20 +399,20 @@ pub fn execute_const(params: &Params, mach: &MachineWithStack, ty: u32) -> Machi
 
 trait Inst {
     fn execute_internal(&self, params: &Params, mach: &MachineWithStack) -> (MachineWithStack, MachineWithStack);
-    fn code() -> u32;
+    fn code(&self) -> u32;
     fn execute(&self, params: &Params, mach: &MachineWithStack) -> (MachineWithStack, MachineWithStack) {
         let (before, after) = self.execute_internal(params, mach);
-        let after = check_instruction(&after, Self::code());
+        let after = check_instruction(&after, self.code());
         (before, after)
     }
 }
 
 trait InstCS {
     fn execute_internal(&self, cs: ConstraintSystemRef<Fr>, params: &Params, mach: &MachineWithStack) -> (MachineWithStack, MachineWithStack);
-    fn code() -> u32;
+    fn code(&self) -> u32;
     fn execute(&self, cs: ConstraintSystemRef<Fr>, params: &Params, mach: &MachineWithStack) -> (MachineWithStack, MachineWithStack) {
         let (before, after) = self.execute_internal(cs, params, mach);
-        let after = check_instruction(&after, Self::code());
+        let after = check_instruction(&after, self.code());
         (before, after)
     }
 }
@@ -451,8 +451,14 @@ impl InstConstHint {
 }
 
 impl Inst for InstConst {
-    fn code() -> u32 {
-        12
+    fn code(&self) -> u32 {
+        match self.ty {
+            0 => 0x41,
+            1 => 0x42,
+            2 => 0x43,
+            3 => 0x44,
+            _ => panic!("bad constant type"),
+        }
     }
     fn execute_internal(&self, params: &Params, mach: &MachineWithStack) -> (MachineWithStack, MachineWithStack) {
         let before = mach.clone();
@@ -503,7 +509,7 @@ pub struct InstDrop {
 }
 
 impl Inst for InstDrop {
-    fn code() -> u32 {
+    fn code(&self) -> u32 {
         0x1A
     }
     fn execute_internal(&self, params: &Params, mach: &MachineWithStack) -> (MachineWithStack, MachineWithStack) {
@@ -566,7 +572,7 @@ pub struct InstSelectHint {
 }
 
 impl Inst for InstSelect {
-    fn code() -> u32 { 23 }
+    fn code(&self) -> u32 { 23 }
     fn execute_internal(&self, params: &Params, mach: &MachineWithStack) -> (MachineWithStack, MachineWithStack) {
         let mut mach = mach.clone();
         mach.valueStack.push(self.val1.clone());
@@ -612,7 +618,7 @@ struct InstBlock {
 }
 
 impl Inst for InstBlock {
-    fn code() -> u32 { 234 }
+    fn code(&self) -> u32 { 234 }
     fn execute_internal(&self, params: &Params, mach: &MachineWithStack) -> (MachineWithStack, MachineWithStack) {
         let before = mach.clone();
         let after = execute_block(params, &mach);
@@ -649,7 +655,7 @@ pub struct InstBranchHint {
 }
 
 impl Inst for InstBranch {
-    fn code() -> u32 { 234 }
+    fn code(&self) -> u32 { 234 }
     fn execute_internal(&self, params: &Params, mach: &MachineWithStack) -> (MachineWithStack, MachineWithStack) {
         let mut mach = mach.clone();
         mach.valueStack.push(self.val.clone());
@@ -705,7 +711,7 @@ pub struct InstBranchIfHint {
 }
 
 impl Inst for InstBranchIf {
-    fn code() -> u32 { 234 }
+    fn code(&self) -> u32 { 234 }
     fn execute_internal(&self, params: &Params, mach: &MachineWithStack) -> (MachineWithStack, MachineWithStack) {
         let mut mach = mach.clone();
         mach.valueStack.push(self.val1.clone());
@@ -812,7 +818,7 @@ pub struct InstReturn {
 }
 
 impl Inst for InstReturn {
-    fn code() -> u32 { 234 }
+    fn code(&self) -> u32 { 234 }
     fn execute_internal(&self, params: &Params, mach: &MachineWithStack) -> (MachineWithStack, MachineWithStack) {
         let mut mach = mach.clone();
         mach.frameStack.push(hash_stack_frame(&params, &self.frame));
@@ -869,7 +875,7 @@ pub struct InstCallHint {
 }
 
 impl Inst for InstCall {
-    fn code() -> u32 { 234 }
+    fn code(&self) -> u32 { 234 }
     fn execute_internal(&self, params: &Params, mach: &MachineWithStack) -> (MachineWithStack, MachineWithStack) {
         let mut mach = mach.clone();
         mach.frameStack.push(hash_stack_frame(&params, &self.frame));
@@ -908,7 +914,7 @@ pub struct InstCrossCallHint {
 }
 
 impl Inst for InstCrossCall {
-    fn code() -> u32 { 234 }
+    fn code(&self) -> u32 { 234 }
     fn execute_internal(&self, params: &Params, mach: &MachineWithStack) -> (MachineWithStack, MachineWithStack) {
         let mach = mach.clone();
         let before = mach.clone();
@@ -951,7 +957,7 @@ pub struct InstLocalGetHint {
 }
 
 impl InstCS for InstLocalGet {
-    fn code() -> u32 { 234 }
+    fn code(&self) -> u32 { 234 }
     fn execute_internal(&self, cs: ConstraintSystemRef<Fr>, params: &Params, mach: &MachineWithStack) -> (MachineWithStack, MachineWithStack) {
         let mut mach = mach.clone();
         mach.frameStack.push(hash_stack_frame(&params, &self.frame));
@@ -1010,7 +1016,7 @@ pub struct InstLocalSetHint {
 }
 
 impl InstCS for InstLocalSet {
-    fn code() -> u32 { 234 }
+    fn code(&self) -> u32 { 234 }
     fn execute_internal(&self, cs: ConstraintSystemRef<Fr>, params: &Params, mach: &MachineWithStack) -> (MachineWithStack, MachineWithStack) {
         let mut mach = mach.clone();
         mach.frameStack.push(hash_stack_frame(&params, &self.frame));
@@ -1062,7 +1068,7 @@ pub struct InstGlobalGetHint {
 }
 
 impl InstCS for InstGlobalGet {
-    fn code() -> u32 { 234 }
+    fn code(&self) -> u32 { 234 }
     fn execute_internal(&self, cs: ConstraintSystemRef<Fr>, params: &Params, mach: &MachineWithStack) -> (MachineWithStack, MachineWithStack) {
         let mach = mach.clone();
         let before = mach.clone();
@@ -1117,7 +1123,7 @@ pub struct InstGlobalSetHint {
 }
 
 impl InstCS for InstGlobalSet {
-    fn code() -> u32 { 234 }
+    fn code(&self) -> u32 { 234 }
     fn execute_internal(&self, cs: ConstraintSystemRef<Fr>, params: &Params, mach: &MachineWithStack) -> (MachineWithStack, MachineWithStack) {
         let mut mach = mach.clone();
         mach.valueStack.push(self.old_val.clone());
@@ -1182,7 +1188,7 @@ pub struct InstInitFrameHint {
 }
 
 impl Inst for InstInitFrame {
-    fn code() -> u32 { 234 }
+    fn code(&self) -> u32 { 234 }
     fn execute_internal(&self, params: &Params, mach: &MachineWithStack) -> (MachineWithStack, MachineWithStack) {
         let mut mach = mach.clone();
         mach.valueStack.push(self.val1.clone());
