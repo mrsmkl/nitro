@@ -1441,7 +1441,7 @@ pub fn test(w: Witness) {
     let cs_sys = ConstraintSystem::<Fr>::new();
     let cs = ConstraintSystemRef::new(cs_sys);
     let params = Params::new();
-    /* let (before, after) = */ make_proof(
+    let (before, after) = make_proof(
         cs.clone(),
         &params,
         &w.machine_hint,
@@ -1453,5 +1453,6 @@ pub fn test(w: Witness) {
         &w.func_proof,
     );
     println!("constraints {} {}", cs.num_constraints(), cs.is_satisfied().unwrap());
+    println!("before {}, after {}", before.value().unwrap(), after.value().unwrap());
 }
 
