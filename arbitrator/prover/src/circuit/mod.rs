@@ -957,7 +957,7 @@ pub struct InstLocalGetHint {
 }
 
 impl InstCS for InstLocalGet {
-    fn code(&self) -> u32 { 234 }
+    fn code(&self) -> u32 { 0x20 }
     fn execute_internal(&self, cs: ConstraintSystemRef<Fr>, params: &Params, mach: &MachineWithStack) -> (MachineWithStack, MachineWithStack) {
         let mut mach = mach.clone();
         mach.frameStack.push(hash_stack_frame(&params, &self.frame));
@@ -1016,7 +1016,7 @@ pub struct InstLocalSetHint {
 }
 
 impl InstCS for InstLocalSet {
-    fn code(&self) -> u32 { 234 }
+    fn code(&self) -> u32 { 0x21 }
     fn execute_internal(&self, cs: ConstraintSystemRef<Fr>, params: &Params, mach: &MachineWithStack) -> (MachineWithStack, MachineWithStack) {
         let mut mach = mach.clone();
         mach.frameStack.push(hash_stack_frame(&params, &self.frame));

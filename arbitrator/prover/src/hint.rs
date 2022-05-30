@@ -1,4 +1,7 @@
-use crate::circuit::{MachineHint,ModuleHint,InstructionHint,InstProof,InstDropHint,InstConstHint};
+use crate::circuit::{
+    MachineHint,ModuleHint,InstructionHint,InstProof,InstDropHint,InstConstHint,InstLocalGetHint,
+    StackFrameHint,
+};
 use crate::machine::{PoseidonMachine,GenModule};
 use ark_bls12_381::Fr;
 use crate::circuit::hash::Poseidon;
@@ -91,12 +94,45 @@ impl PoseidonMachine {
                     inst_proof,
                 })
             }
+            Opcode::LocalGet => {
+                println!("module hash {}", mole.hash());
+                let mut mach = self.clone();
+                let idx = inst.argument_data as usize;
+                let frame = mach.frame_stack.pop().unwrap();
+                let locals_merkle: GenMerkle<FrHash,Poseidon> = GenMerkle::new(
+                    MerkleType::Value,
+                    frame.locals.iter().map(|v| v.gen_hash()).collect()
+                );
+                let merkle_proof = make_proof(idx, locals_merkle.prove_gen(idx).unwrap());
+                let v = frame.locals[idx];
+                let machine_hint = mach.hint();
+                println!("local get idx {}", idx);
+                println!("value stack {}", machine_hint.valueStack);
+                println!("internal stack {}", machine_hint.internalStack);
+                println!("block stack {}", machine_hint.blockStack);
+                println!("frame stack {}", machine_hint.frameStack);
+                let proof = InstLocalGetHint {
+                    val: v.hint().hash(&params), // value to get from local frame
+                    proof: merkle_proof,
+                    frame: frame.hint(),
+                };
+                Some(Witness {
+                    machine_hint,
+                    proof: InstProof::LocalGet(proof),
+                    inst: inst.hint(),
+                    mole: mole.hint(),
+                    mod_proof,
+                    func_proof,
+                    inst_proof,
+                })
+            }
             _ => None,
         }
     }
 }
 
 type PoseidonModule = GenModule<FrHash, Poseidon>;
+type PoseidonStackFrame = GenStackFrame<FrHash, Poseidon>;
 
 impl PoseidonModule {
     fn hint(&self) -> ModuleHint {
@@ -115,3 +151,17 @@ impl PoseidonModule {
     }
 }
 
+impl PoseidonStackFrame {
+    fn hint(&self) -> StackFrameHint {
+        let merkle : GenMerkle<T,H> = GenMerkle::new(
+            MerkleType::Value,
+            self.locals.iter().map(|v| v.gen_hash::<T,H>()).collect(),
+        );
+        StackFrameHint {
+            returnPc: self.return_ref.hint(),
+            localsMerkleRoot: merkle.root(),
+            callerModule: Fr::from(self.caller_module),
+            callerModuleInternals: Fr::from(self.caller_module_internals),
+        }
+    }
+}

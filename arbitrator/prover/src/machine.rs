@@ -152,10 +152,10 @@ impl <T: Debug + Clone + PartialEq + Eq + Default + Into<Vec<u8>>, H: Hasher<T>>
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct StackFrame {
-    return_ref: Value,
-    locals: Vec<Value>,
-    caller_module: u32,
-    caller_module_internals: u32,
+    pub return_ref: Value,
+    pub locals: Vec<Value>,
+    pub caller_module: u32,
+    pub caller_module_internals: u32,
 }
 
 impl StackFrame {
