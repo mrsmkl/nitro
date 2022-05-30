@@ -393,6 +393,7 @@ pub fn execute_const(params: &Params, mach: &MachineWithStack, ty: u32) -> Machi
         ty: FpVar::constant(Fr::from(ty)),
     };
     mach.valueStack.push(hash_value(params, &v));
+    mach.functionPc = mach.functionPc.clone() + FpVar::constant(Fr::from(1));
     mach
 }
 
@@ -547,6 +548,7 @@ pub fn execute_select(_params: &Params, mach: &MachineWithStack) -> MachineWithS
     let sel_bool = selector.is_eq(&FpVar::constant(Fr::from(0))).unwrap();
     let a_b = sel_bool.select(&a, &b).unwrap();
     mach.valueStack.push(a_b);
+    mach.functionPc = mach.functionPc.clone() + FpVar::constant(Fr::from(1));
     mach
 }
 
@@ -598,6 +600,7 @@ pub fn execute_block(_params: &Params, mach: &MachineWithStack) -> MachineWithSt
     let target_pc = mach.functionPc.clone();
     enforce_i32(target_pc.clone());
     mach.blockStack.push(target_pc);
+    mach.functionPc = mach.functionPc.clone() + FpVar::constant(Fr::from(1));
     mach
 }
 
@@ -682,6 +685,7 @@ pub fn execute_branch_if(params: &Params, mach: &MachineWithStack) -> MachineWit
     let bs_2 = mach.blockStack.clone();
     let _popped = bs_1.pop();
 
+    mach.functionPc = mach.functionPc.clone() + FpVar::constant(Fr::from(1));
     mach.functionPc = sel_bool.select(&mach.blockStack.pop(), &mach.functionPc).unwrap();
     mach.blockStack = Stack::based(sel_bool.select(&hash_stack(params, &bs_1), &hash_stack(params, &bs_2)).unwrap());
     mach
@@ -929,6 +933,7 @@ pub fn execute_local_get(cs: ConstraintSystemRef<Fr>, params: &Params, mach: &Ma
     mach.valid = mach.valid.and(&root.is_eq(&frame.localsMerkleRoot).unwrap()).unwrap();
     mach.valid = mach.valid.and(&idx.is_eq(&mach.inst.argumentData).unwrap()).unwrap();
     mach.valueStack.push(var);
+    mach.functionPc = mach.functionPc.clone() + FpVar::constant(Fr::from(1));
     mach
 }
 
@@ -985,6 +990,7 @@ pub fn execute_local_set(cs: ConstraintSystemRef<Fr>, params: &Params, mach: &Ma
     let mut frame = frame.clone();
     frame.localsMerkleRoot = root2;
     mach.frameStack.push(hash_stack_frame(params, &frame));
+    mach.functionPc = mach.functionPc.clone() + FpVar::constant(Fr::from(1));
     mach
 }
 
@@ -1040,6 +1046,7 @@ pub fn execute_global_get(cs: ConstraintSystemRef<Fr>, params: &Params, mach: &M
     mach.valid = mach.valid.and(&root.is_eq(&mach.mole.globalsMerkleRoot).unwrap()).unwrap();
     mach.valid = mach.valid.and(&idx.is_eq(&mach.inst.argumentData).unwrap()).unwrap();
     mach.valueStack.push(var);
+    mach.functionPc = mach.functionPc.clone() + FpVar::constant(Fr::from(1));
     mach
 }
 
@@ -1090,6 +1097,7 @@ pub fn execute_global_set(cs: ConstraintSystemRef<Fr>, params: &Params, mach: &M
     let mut mole = mach.mole.clone();
     mole.globalsMerkleRoot = root2;
     mach.mole = mole;
+    mach.functionPc = mach.functionPc.clone() + FpVar::constant(Fr::from(1));
     mach
 }
 
@@ -1154,6 +1162,7 @@ pub fn execute_init_frame(params: &Params, mach: &MachineWithStack, returnPc: &V
         localsMerkleRoot: mach.inst.argumentData.clone(),
     };
     mach.frameStack.push(hash_stack_frame(params, &frame));
+    mach.functionPc = mach.functionPc.clone() + FpVar::constant(Fr::from(1));
     mach
 }
 
