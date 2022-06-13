@@ -1489,6 +1489,12 @@ pub struct FullWitness {
     pub after: Fr,
 }
 
+impl FullWitness {
+    fn inputs(&self) -> Vec<Fr> {
+        vec![self.before.clone(), self.after.clone()]
+    }
+}
+
 impl ConstraintSynthesizer<Fr> for Witness {
     fn generate_constraints(
         self,
@@ -1562,36 +1568,17 @@ pub fn test_many(w: Vec<FullWitness>) {
     let circuit = w[0].clone();
     let mut rng = test_rng();
     println!("Setting up circuit");
-    let (pk, _vk) = InnerSNARK::setup(circuit.clone(), &mut rng).unwrap();
+    let (pk, vk) = InnerSNARK::setup(circuit.clone(), &mut rng).unwrap();
     for i in 0..w.len() {
         let circuit = w[i].clone();
         println!("Testing prove");
         let start = Instant::now();
-        let _proof = InnerSNARK::prove(&pk, circuit.clone(), &mut rng).unwrap();
+        let proof = InnerSNARK::prove(&pk, circuit.clone(), &mut rng).unwrap();
         let elapsed = start.elapsed();
         println!("proving took {} ms", elapsed.as_millis());
+        println!("verify: {}", InnerSNARK::verify(&vk, &circuit.inputs(), &proof).unwrap());
     }
 }
-
-/*
-pub fn test_many(w: Vec<Witness>) {
-    use ark_crypto_primitives::CircuitSpecificSetupSNARK;
-    use ark_crypto_primitives::SNARK;
-    use std::time::Instant;
-    use ark_std::test_rng;
-    let circuit = w[0].clone();
-    let mut rng = test_rng();
-    println!("Setting up circuit");
-    let (pk, _vk) = InnerSNARK::setup(circuit.clone(), &mut rng).unwrap();
-    for i in 0..w.len() {
-        let circuit = w[i].clone();
-        println!("Testing prove");
-        let start = Instant::now();
-        let _proof = InnerSNARK::prove(&pk, circuit.clone(), &mut rng).unwrap();
-        let elapsed = start.elapsed();
-        println!("proving took {} ms", elapsed.as_millis());
-    }
-}*/
 
 pub fn test(w: Witness) {
     use ark_relations::r1cs::ConstraintSystem;
