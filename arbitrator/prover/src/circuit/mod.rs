@@ -1517,6 +1517,12 @@ impl ConstraintSynthesizer<Fr> for FullWitness {
         cs: ConstraintSystemRef<Fr>,
     ) -> Result<(), SynthesisError> {
         let params = Params::new();
+        let before_var = FpVar::Var(
+            AllocatedFp::<Fr>::new_input(cs.clone(), || Ok(self.before)).unwrap(),
+        );
+        let after_var = FpVar::Var(
+            AllocatedFp::<Fr>::new_input(cs.clone(), || Ok(self.after)).unwrap(),
+        );
         let (before, after) = make_proof(
             cs.clone(),
             &params,
@@ -1528,6 +1534,8 @@ impl ConstraintSynthesizer<Fr> for FullWitness {
             &self.witness.inst_proof,
             &self.witness.func_proof,
         );
+        before_var.enforce_equal(&before).unwrap();
+        after_var.enforce_equal(&after).unwrap();
         println!("constraints {}", cs.num_constraints());
         Ok(())
     }
@@ -1546,7 +1554,7 @@ type InnerSNARK = Groth16<BLSPairingEngine>;
 type InnerSNARKVK = VerifyingKey<BLSPairingEngine>;
 type InnerSNARKPK = ProvingKey<BLSPairingEngine>;
 
-pub fn test_many(w: Vec<Witness>) {
+pub fn test_many(w: Vec<FullWitness>) {
     use ark_crypto_primitives::CircuitSpecificSetupSNARK;
     use ark_crypto_primitives::SNARK;
     use std::time::Instant;
@@ -1564,6 +1572,26 @@ pub fn test_many(w: Vec<Witness>) {
         println!("proving took {} ms", elapsed.as_millis());
     }
 }
+
+/*
+pub fn test_many(w: Vec<Witness>) {
+    use ark_crypto_primitives::CircuitSpecificSetupSNARK;
+    use ark_crypto_primitives::SNARK;
+    use std::time::Instant;
+    use ark_std::test_rng;
+    let circuit = w[0].clone();
+    let mut rng = test_rng();
+    println!("Setting up circuit");
+    let (pk, _vk) = InnerSNARK::setup(circuit.clone(), &mut rng).unwrap();
+    for i in 0..w.len() {
+        let circuit = w[i].clone();
+        println!("Testing prove");
+        let start = Instant::now();
+        let _proof = InnerSNARK::prove(&pk, circuit.clone(), &mut rng).unwrap();
+        let elapsed = start.elapsed();
+        println!("proving took {} ms", elapsed.as_millis());
+    }
+}*/
 
 pub fn test(w: Witness) {
     use ark_relations::r1cs::ConstraintSystem;

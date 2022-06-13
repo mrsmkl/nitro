@@ -18,6 +18,7 @@ use std::{
     path::{Path, PathBuf},
 };
 use structopt::StructOpt;
+use prover::circuit::FullWitness;
 
 #[derive(StructOpt)]
 #[structopt(name = "arbitrator-prover")]
@@ -315,13 +316,7 @@ fn main() -> Result<()> {
                 next_inst.argument_data,
             );
             std::io::stdout().flush().unwrap();
-            match mach.witness() {
-                Some(w) => {
-                    // println!("\nWitness: {:?}", w);
-                    witnesses.push(w)
-                }
-                None => {},
-            };
+            let witness = mach.witness();
             let before = mach.hash().clone();
             if !seen_states.insert(before.clone()) {
                 break;
@@ -331,6 +326,13 @@ fn main() -> Result<()> {
             let after = mach.hash();
             println!(" - done");
             println!("before {}, after {}", before, after);
+            match witness {
+                Some(w) => {
+                    // println!("\nWitness: {:?}", w);
+                    witnesses.push(FullWitness {witness: w, before: before.clone().into(), after: after.clone().into()})
+                }
+                None => {},
+            };
             proofs.push(ProofInfo {
                 before: before.to_string(),
                 proof: hex::encode(proof),
