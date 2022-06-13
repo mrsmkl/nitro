@@ -230,6 +230,7 @@ fn main() -> Result<()> {
         cycles_bigloop_start = core::arch::x86_64::_rdtsc();
     }
     mach.step_n(opts.proving_start)?;
+    let mut witnesses = vec![];
     while !mach.is_halted() {
         let next_inst = mach.get_next_instruction().unwrap();
         let next_opcode = next_inst.opcode;
@@ -317,7 +318,7 @@ fn main() -> Result<()> {
             match mach.witness() {
                 Some(w) => {
                     // println!("\nWitness: {:?}", w);
-                    prover::circuit::test(w)
+                    witnesses.push(w)
                 }
                 None => {},
             };
@@ -338,6 +339,13 @@ fn main() -> Result<()> {
             mach.step_n(opts.proving_interval.saturating_sub(1))?;
         }
     }
+
+    prover::circuit::test_many(witnesses);
+    /*
+    for w in witnesses {
+        prover::circuit::test(w)
+    }*/
+
     #[cfg(target_arch = "x86_64")]
     unsafe {
         cycles_bigloop_end = core::arch::x86_64::_rdtsc();

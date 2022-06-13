@@ -54,7 +54,6 @@ impl PoseidonMachine {
         let inst_proof = make_proof(self.pc.inst, func.code_merkle.prove_gen(self.pc.inst).unwrap());
         let func_proof = make_proof(self.pc.func, mole.funcs_merkle.prove_gen(self.pc.func).unwrap());
         match inst.opcode {
-            /*
             Opcode::Drop => {
                 println!("module hash {}", mole.hash());
                 let mut mach = self.clone();
@@ -130,7 +129,6 @@ impl PoseidonMachine {
                     inst_proof,
                 })
             }
-            */
             Opcode::LocalSet => {
                 let mut mach = self.clone();
                 let orig_hint = mach.hint();

@@ -238,24 +238,26 @@ pub fn prove_instr(
     func_proof: &Proof,
 ) {
     let mole_hash = hash_module(params, mole);
-    println!("Module hash {}", mole_hash.value().unwrap());
+    // println!("Module hash {}", mole_hash.value().unwrap());
     let (mole_root, mole_idx) = make_path(cs.clone(), 16, params, mole_hash, mod_proof);
     mole_root.enforce_equal(&machine.modulesRoot).unwrap();
+    /*
     println!("Module root {}, idx {}, got {}, got idx {}",
         machine.modulesRoot.value().unwrap(), machine.moduleIdx.value().unwrap(),
         mole_root.value().unwrap(), mole_idx.value().unwrap());
+    */
     mole_idx.enforce_equal(&machine.moduleIdx).unwrap();
-    println!("Inst hash {} at {}", inst_var.value().unwrap(), machine.functionPc.value().unwrap());
+    // println!("Inst hash {} at {}", inst_var.value().unwrap(), machine.functionPc.value().unwrap());
     let (inst_root, inst_idx) = make_path(cs.clone(), 20, params, inst_var.clone(), inst_proof);
     inst_idx.enforce_equal(&machine.functionPc).unwrap();
-    println!("Inst root {}, inst idx {}", inst_root.value().unwrap(), inst_idx.value().unwrap());
+    // println!("Inst root {}, inst idx {}", inst_root.value().unwrap(), inst_idx.value().unwrap());
     let func_hash = poseidon_gadget(&params, vec![inst_root]);
-    println!("Func hash {}", func_hash.value().unwrap());
+    // println!("Func hash {}", func_hash.value().unwrap());
     let (func_root, func_idx) = make_path(cs.clone(), 16, params, func_hash, func_proof);
     func_root.enforce_equal(&mole.functionsMerkleRoot).unwrap();
     func_idx.enforce_equal(&machine.functionIdx).unwrap();
-    println!("func root {}, got {}", mole.functionsMerkleRoot.value().unwrap(), func_root.value().unwrap());
-    println!("func idx {}, got {}", machine.functionIdx.value().unwrap(), func_idx.value().unwrap());
+    // println!("func root {}, got {}", mole.functionsMerkleRoot.value().unwrap(), func_root.value().unwrap());
+    // println!("func idx {}, got {}", machine.functionIdx.value().unwrap(), func_idx.value().unwrap());
 }
 
 #[derive(Debug, Clone)]
@@ -517,7 +519,7 @@ impl Inst for InstDrop {
     fn execute_internal(&self, params: &Params, mach: &MachineWithStack) -> (MachineWithStack, MachineWithStack) {
         let mut mach = mach.clone();
         mach.valueStack.push(self.val.clone());
-        println!("drop value {}", self.val.value().unwrap());
+        // println!("drop value {}", self.val.value().unwrap());
         let before = mach.clone();
         let after = execute_drop(params, &mach);
         let before_elim = elim_stack(params, &before);
@@ -790,13 +792,14 @@ impl StackFrameHint {
 
 fn hash_stack_frame(params: &Params, frame: &StackFrame) -> FpVar<Fr> {
     let ret = hash_value(params, &frame.returnPc);
+    /*
     println!(
         "hashing frame ret {}, root {}, mloe {}, inter {}",
         ret.value().unwrap(),
         frame.localsMerkleRoot.value().unwrap(),
         frame.callerModule.value().unwrap(),
         frame.callerModuleInternals.value().unwrap(),
-    );
+    );*/
     poseidon_gadget(&params, vec![
         ret,
         frame.localsMerkleRoot.clone(),
@@ -1032,17 +1035,18 @@ impl InstCS for InstLocalSet {
     fn execute_internal(&self, cs: ConstraintSystemRef<Fr>, params: &Params, mach: &MachineWithStack) -> (MachineWithStack, MachineWithStack) {
         let mut mach = mach.clone();
         let frame_hash = hash_stack_frame(&params, &self.frame);
-        println!("Frame hash {}, bare stack {}", frame_hash.value().unwrap(), mach.frameStack.base.value().unwrap());
+        // println!("Frame hash {}, bare stack {}", frame_hash.value().unwrap(), mach.frameStack.base.value().unwrap());
         mach.frameStack.push(frame_hash);
-        println!("old val {}, base value stack {}", self.old_val.value().unwrap(), mach.valueStack.base.value().unwrap());
+        // println!("old val {}, base value stack {}", self.old_val.value().unwrap(), mach.valueStack.base.value().unwrap());
         mach.valueStack.push(self.val.clone());
         let before = mach.clone();
         let before_elim = elim_stack(params, &before);
+        /*
         println!(
             "before frame stack {}, value {}",
             before_elim.frameStack.value().unwrap(),
             before_elim.valueStack.value().unwrap(),
-        );
+        );*/
         let after = execute_local_set(cs.clone(), params, &mach, &self.proof, &self.old_val.clone(), &self.frame);
         (before, after)
     }
@@ -1476,6 +1480,91 @@ pub struct Witness {
     pub func_proof: Proof,
 }
 
+use ark_relations::r1cs::{ConstraintSynthesizer,SynthesisError};
+
+#[derive(Debug,Clone)]
+pub struct FullWitness {
+    pub witness: Witness,
+    pub before: Fr,
+    pub after: Fr,
+}
+
+impl ConstraintSynthesizer<Fr> for Witness {
+    fn generate_constraints(
+        self,
+        cs: ConstraintSystemRef<Fr>,
+    ) -> Result<(), SynthesisError> {
+        let params = Params::new();
+        let (before, after) = make_proof(
+            cs.clone(),
+            &params,
+            &self.machine_hint,
+            self.proof,
+            self.inst,
+            &self.mole,
+            &self.mod_proof,
+            &self.inst_proof,
+            &self.func_proof,
+        );
+        println!("constraints {}", cs.num_constraints());
+        Ok(())
+    }
+}
+
+impl ConstraintSynthesizer<Fr> for FullWitness {
+    fn generate_constraints(
+        self,
+        cs: ConstraintSystemRef<Fr>,
+    ) -> Result<(), SynthesisError> {
+        let params = Params::new();
+        let (before, after) = make_proof(
+            cs.clone(),
+            &params,
+            &self.witness.machine_hint,
+            self.witness.proof,
+            self.witness.inst,
+            &self.witness.mole,
+            &self.witness.mod_proof,
+            &self.witness.inst_proof,
+            &self.witness.func_proof,
+        );
+        println!("constraints {}", cs.num_constraints());
+        Ok(())
+    }
+}
+
+use ark_bls12_381::{
+    Bls12_381 as BLSPairingEngine,
+};
+
+use ark_groth16::ProvingKey;
+use ark_groth16::VerifyingKey;
+use ark_groth16::Groth16;
+
+type InnerSNARK = Groth16<BLSPairingEngine>;
+// type InnerSNARKProof = Proof<BLSPairingEngine>;
+type InnerSNARKVK = VerifyingKey<BLSPairingEngine>;
+type InnerSNARKPK = ProvingKey<BLSPairingEngine>;
+
+pub fn test_many(w: Vec<Witness>) {
+    use ark_crypto_primitives::CircuitSpecificSetupSNARK;
+    use ark_crypto_primitives::SNARK;
+    use std::time::Instant;
+    use ark_std::test_rng;
+    let circuit = w[0].clone();
+    let mut rng = test_rng();
+    println!("Setting up circuit");
+    let (pk, _vk) = InnerSNARK::setup(circuit.clone(), &mut rng).unwrap();
+    for i in 0..w.len() {
+        let circuit = w[i].clone();
+        println!("Testing prove");
+        let start = Instant::now();
+        let _proof = InnerSNARK::prove(&pk, circuit.clone(), &mut rng).unwrap();
+        let elapsed = start.elapsed();
+        println!("proving took {} ms", elapsed.as_millis());
+    }
+}
+
 pub fn test(w: Witness) {
     use ark_relations::r1cs::ConstraintSystem;
     let cs_sys = ConstraintSystem::<Fr>::new();
@@ -1492,7 +1581,8 @@ pub fn test(w: Witness) {
         &w.inst_proof,
         &w.func_proof,
     );
-    println!("constraints {} {}", cs.num_constraints(), cs.is_satisfied().unwrap());
-    println!("before {}, after {}", before.value().unwrap(), after.value().unwrap());
+    println!("constraints {}", cs.num_constraints());
+    // println!("constraints {} {}", cs.num_constraints(), cs.is_satisfied().unwrap());
+    // println!("before {}, after {}", before.value().unwrap(), after.value().unwrap());
 }
 
