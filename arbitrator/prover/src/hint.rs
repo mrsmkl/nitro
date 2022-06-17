@@ -4,7 +4,7 @@ use crate::circuit::{
     InstLocalSetHint,
 };
 use crate::machine::{PoseidonMachine,GenModule,StackFrame};
-use ark_bls12_381::Fr;
+use ark_bn254::Fr;
 use crate::circuit::hash::Poseidon;
 use crate::circuit::hash::FrHash;
 use crate::machine::{gen_hash_stack_frame_stack, gen_hash_pc_stack, gen_hash_value_stack};

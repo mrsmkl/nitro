@@ -2,7 +2,7 @@ use ark_r1cs_std::alloc::AllocVar;
 use ark_r1cs_std::{
     fields::fp::{AllocatedFp, FpVar},
 };
-use ark_bls12_381::Fr;
+use ark_bn254::Fr;
 // use ark_relations::r1cs::ConstraintSynthesizer;
 //use ark_relations::r1cs::SynthesisError;
 use ark_relations::r1cs::ConstraintSystemRef;
@@ -349,29 +349,4 @@ pub fn test() {
     let res = poseidon_gadget(&params, vec![v1, v2, v3, v4, v5, v6]);
     println!("gadget {}", res.value().unwrap());
     println!("constraints {}", cs.num_constraints());
-    /*
-    use ark_std::test_rng;
-    use ark_crypto_primitives::CircuitSpecificSetupSNARK;
-    use ark_crypto_primitives::SNARK;
-        use ark_bls12_381::{
-        Fr, Bls12_381 as BLSPairingEngine,
-    };
-    
-    type InnerSNARK = Groth16<BLSairingEngine>;
-    type InnerSNARKProof = Proof<BLSPairingEngine>;
-    type InnerSNARKVK = VerifyingKey<BLSPairingEngine>;
-    type InnerSNARKPK = ProvingKey<BLSPairingEngine>;
-
-    let circuit = TestCircuit {
-        params: params.clone(),
-        steps: 100,
-    };
-    circuit.generate_constraints(cs); */
-    /*
-    let mut rng = test_rng();
-    println!("Setting up circuit");
-    let (pk, vk) = InnerSNARK::setup(circuit.clone(), &mut rng).unwrap();
-    println!("Testing prove");
-    let proof = InnerSNARK::prove(&pk, circuit.clone(), &mut rng).unwrap();
-    */
 }

@@ -2,7 +2,7 @@ use ark_r1cs_std::alloc::AllocVar;
 use ark_r1cs_std::{
     fields::fp::{AllocatedFp, FpVar},
 };
-use ark_bls12_381::Fr;
+use ark_bn254::Fr;
 // use ark_relations::r1cs::ConstraintSynthesizer;
 // use ark_relations::r1cs::SynthesisError;
 use ark_relations::r1cs::ConstraintSystemRef;
@@ -1547,8 +1547,8 @@ impl ConstraintSynthesizer<Fr> for FullWitness {
     }
 }
 
-use ark_bls12_381::{
-    Bls12_381 as BLSPairingEngine,
+use ark_bn254::{
+    Bn254 as BLSPairingEngine,
 };
 
 use ark_groth16::ProvingKey;
@@ -1559,16 +1559,49 @@ type InnerSNARK = Groth16<BLSPairingEngine>;
 // type InnerSNARKProof = Proof<BLSPairingEngine>;
 type InnerSNARKVK = VerifyingKey<BLSPairingEngine>;
 type InnerSNARKPK = ProvingKey<BLSPairingEngine>;
+use ark_ff::PrimeField;
+
+// Read template file to string
+fn read_template() -> String {
+    std::fs::read_to_string("templates/verifier_groth16.sol").unwrap()
+}
+
+fn process_template(vk: InnerSNARKVK) -> String {
+    let template = read_template();
+    let alpha_g1 = format!("0x{}, 0x{}", vk.alpha_g1.x.into_repr(), vk.alpha_g1.y.into_repr());
+    let beta_g2 = format!("[0x{},0x{}], [0x{},0x{}]", vk.beta_g2.x.c0.into_repr(), vk.beta_g2.x.c1.into_repr(), vk.beta_g2.y.c0.into_repr(), vk.beta_g2.y.c1.into_repr());
+    let gamma_g2 = format!("[0x{},0x{}], [0x{},0x{}]", vk.gamma_g2.x.c0.into_repr(), vk.gamma_g2.x.c1.into_repr(), vk.gamma_g2.y.c0.into_repr(), vk.gamma_g2.y.c1.into_repr());
+    let delta_g2 = format!("[0x{},0x{}], [0x{},0x{}]", vk.delta_g2.x.c0.into_repr(), vk.delta_g2.x.c1.into_repr(), vk.delta_g2.y.c0.into_repr(), vk.delta_g2.y.c1.into_repr());
+    let public_len = format!("{}", vk.gamma_abc_g1.len() - 1);
+    let ic_len = format!("{}", vk.gamma_abc_g1.len());
+    let mut ic_points = format!("");
+    for (i,pt) in vk.gamma_abc_g1.iter().enumerate() {
+        ic_points = format!("{}\n      vk.IC[{}] = Pairing.G1Point(0x{},0x{});", ic_points, i, pt.x.into_repr(), pt.y.into_repr())
+    }
+    let template = template.replace("<%vk_alpha1%>", &alpha_g1);
+    let template = template.replace("<%vk_beta2%>", &beta_g2);
+    let template = template.replace("<%vk_gamma2%>", &gamma_g2);
+    let template = template.replace("<%vk_delta2%>", &delta_g2);
+    let template = template.replace("<%vk_ic_length%>", &ic_len);
+    let template = template.replace("<%vk_input_length%>", &public_len);
+    let template = template.replace("<%vk_ic_pts%>", &ic_points);
+    template
+}
 
 pub fn test_many(w: Vec<FullWitness>) {
     use ark_crypto_primitives::CircuitSpecificSetupSNARK;
     use ark_crypto_primitives::SNARK;
     use std::time::Instant;
     use ark_std::test_rng;
+    use std::io::Write;
     let circuit = w[0].clone();
     let mut rng = test_rng();
     println!("Setting up circuit");
     let (pk, vk) = InnerSNARK::setup(circuit.clone(), &mut rng).unwrap();
+    println!("verifier key: {:?}", vk);
+    let mut output = std::fs::File::create("test.sol").unwrap();
+    write!(output, "{}", process_template(vk.clone()));
+/*
     for i in 0..w.len() {
         let circuit = w[i].clone();
         println!("Testing prove");
@@ -1578,6 +1611,7 @@ pub fn test_many(w: Vec<FullWitness>) {
         println!("proving took {} ms", elapsed.as_millis());
         println!("verify: {}", InnerSNARK::verify(&vk, &circuit.inputs(), &proof).unwrap());
     }
+    */
 }
 
 pub fn test(w: Witness) {
