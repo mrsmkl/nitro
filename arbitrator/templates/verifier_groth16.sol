@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0
+
 // Copyright 2017 Christian Reitwiessner
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to
@@ -17,7 +19,7 @@
 
 // 2019 OKIMS
 
-pragma solidity ^0.8.0;
+pragma solidity >=0.7.0 <0.9.0;
 
 library Pairing {
 

@@ -1569,9 +1569,9 @@ fn read_template() -> String {
 fn process_template(vk: InnerSNARKVK) -> String {
     let template = read_template();
     let alpha_g1 = format!("0x{}, 0x{}", vk.alpha_g1.x.into_repr(), vk.alpha_g1.y.into_repr());
-    let beta_g2 = format!("[0x{},0x{}], [0x{},0x{}]", vk.beta_g2.x.c0.into_repr(), vk.beta_g2.x.c1.into_repr(), vk.beta_g2.y.c0.into_repr(), vk.beta_g2.y.c1.into_repr());
-    let gamma_g2 = format!("[0x{},0x{}], [0x{},0x{}]", vk.gamma_g2.x.c0.into_repr(), vk.gamma_g2.x.c1.into_repr(), vk.gamma_g2.y.c0.into_repr(), vk.gamma_g2.y.c1.into_repr());
-    let delta_g2 = format!("[0x{},0x{}], [0x{},0x{}]", vk.delta_g2.x.c0.into_repr(), vk.delta_g2.x.c1.into_repr(), vk.delta_g2.y.c0.into_repr(), vk.delta_g2.y.c1.into_repr());
+    let beta_g2 = format!("[0x{},0x{}], [0x{},0x{}]", vk.beta_g2.x.c1.into_repr(), vk.beta_g2.x.c0.into_repr(), vk.beta_g2.y.c1.into_repr(), vk.beta_g2.y.c0.into_repr());
+    let gamma_g2 = format!("[0x{},0x{}], [0x{},0x{}]", vk.gamma_g2.x.c1.into_repr(), vk.gamma_g2.x.c0.into_repr(), vk.gamma_g2.y.c1.into_repr(), vk.gamma_g2.y.c0.into_repr());
+    let delta_g2 = format!("[0x{},0x{}], [0x{},0x{}]", vk.delta_g2.x.c1.into_repr(), vk.delta_g2.x.c0.into_repr(), vk.delta_g2.y.c1.into_repr(), vk.delta_g2.y.c0.into_repr());
     let public_len = format!("{}", vk.gamma_abc_g1.len() - 1);
     let ic_len = format!("{}", vk.gamma_abc_g1.len());
     let mut ic_points = format!("");
@@ -1601,8 +1601,8 @@ pub fn test_many(w: Vec<FullWitness>) {
     println!("verifier key: {:?}", vk);
     let mut output = std::fs::File::create("test.sol").unwrap();
     write!(output, "{}", process_template(vk.clone()));
-/*
-    for i in 0..w.len() {
+    // for i in 0..w.len() {
+    for i in 0..1 {
         let circuit = w[i].clone();
         println!("Testing prove");
         let start = Instant::now();
@@ -1610,8 +1610,14 @@ pub fn test_many(w: Vec<FullWitness>) {
         let elapsed = start.elapsed();
         println!("proving took {} ms", elapsed.as_millis());
         println!("verify: {}", InnerSNARK::verify(&vk, &circuit.inputs(), &proof).unwrap());
+        println!("let a = [0x{}n, 0x{}n]", proof.a.x.into_repr(), proof.a.y.into_repr());
+        println!("let b = [[0x{}n, 0x{}n], [0x{}n, 0x{}n]]", proof.b.x.c1.into_repr(), proof.b.x.c0.into_repr(), proof.b.y.c1.into_repr(), proof.b.y.c0.into_repr());
+        println!("let c = [0x{}n, 0x{}n]", proof.c.x.into_repr(), proof.c.y.into_repr());
+        println!("inputs: {:?}", circuit.inputs());
+        for elem in circuit.inputs().iter() {
+            println!("0x{}n", elem.into_repr())
+        }
     }
-    */
 }
 
 pub fn test(w: Witness) {
