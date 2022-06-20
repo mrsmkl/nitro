@@ -84,7 +84,6 @@ fn sigma(a: Fr) -> Fr {
 
 fn ark(v: Vec<Fr>, size: usize, round: usize) -> Vec<Fr> {
     let mut res = vec![];
-
     for i in 0..v.len() {
         res.push(v[i] + poseidon_c(size, i + round));
     }
@@ -119,7 +118,9 @@ pub fn poseidon(params: &Params, inputs: Vec<Fr>) -> Fr {
         }
     }
     for i in 0..(nRoundsF + nRoundsP) {
+        println!("round mix out {} {}", i, mix_out[0]);
         let ark_out = ark(mix_out.clone(), size, t*i);
+        println!("round ark out {} {}", i, ark_out[0]);
         let mut mix_in = vec![];
         if i < nRoundsF/2 || i >= nRoundsP + nRoundsF/2 {
             for j in 0..t {
@@ -131,6 +132,7 @@ pub fn poseidon(params: &Params, inputs: Vec<Fr>) -> Fr {
                 mix_in.push(ark_out[j])
             }
         }
+        println!("round mix in {} {}", i, mix_in[0]);
         mix_out = mix(mix_in, size);
     }
     mix_out[0]
@@ -350,7 +352,7 @@ pub fn test() {
     let v5 = FpVar::Var(AllocatedFp::<Fr>::new_witness(cs.clone(), || Ok(Fr::from(123))).unwrap());
     let v6 = FpVar::Var(AllocatedFp::<Fr>::new_witness(cs.clone(), || Ok(Fr::from(123))).unwrap());
     let _v7 = FpVar::Var(AllocatedFp::<Fr>::new_witness(cs.clone(), || Ok(Fr::from(123))).unwrap());
-    let res = poseidon_gadget(&params, vec![v1, v2, v3, v4, v5, v6]);
+    let res = poseidon_gadget(&params, vec![v1, v2, v3]);
     println!("gadget {}", res.value().unwrap());
     println!("constraints {}", cs.num_constraints());
 }

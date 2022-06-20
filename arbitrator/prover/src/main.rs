@@ -133,7 +133,7 @@ const INBOX_HEADER_LEN: usize = 40; // also in test-case's host-io.rs & contract
 const DELAYED_HEADER_LEN: usize = 112; // also in test-case's host-io.rs & contracts's OneStepProverHostIo.sol
 
 fn main() -> Result<()> {
-    prover::circuit::mimc::test();
+    prover::circuit::hash::test();
     Ok(())
 }
 
