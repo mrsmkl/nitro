@@ -15,6 +15,7 @@ use crate::circuit::hash::{Params, poseidon_gadget, Proof, make_path, poseidon};
 
 pub mod hash;
 pub mod keccak;
+pub mod mimc;
 
 use ark_r1cs_std::R1CSVar;
 
