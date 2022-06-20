@@ -4366,3 +4366,46 @@ pub const POSEIDON_M17 : [[Fr;17];17] = [
         field_new!(Fr,"13228220894074693515947418568115512670466893414535562052872530653586084906533")
     ]
 ];
+
+pub fn poseidon_c(a: usize, b: usize) -> Fr {
+    match a {
+        1 => POSEIDON_C2[b],
+        2 => POSEIDON_C3[b],
+        3 => POSEIDON_C4[b],
+        4 => POSEIDON_C5[b],
+        5 => POSEIDON_C6[b],
+        6 => POSEIDON_C7[b],
+        7 => POSEIDON_C8[b],
+        8 => POSEIDON_C9[b],
+        9 => POSEIDON_C10[b],
+        10 => POSEIDON_C11[b],
+        11 => POSEIDON_C12[b],
+        12 => POSEIDON_C13[b],
+        13 => POSEIDON_C14[b],
+        14 => POSEIDON_C15[b],
+        15 => POSEIDON_C16[b],
+        16 => POSEIDON_C17[b],
+        _ => panic!("poseidon constant"),
+    }
+} 
+pub fn poseidon_m(a: usize, b: usize, c: usize) -> Fr {
+    match a {
+        1 => POSEIDON_M2[b][c],
+        2 => POSEIDON_M3[b][c],
+        3 => POSEIDON_M4[b][c],
+        4 => POSEIDON_M5[b][c],
+        5 => POSEIDON_M6[b][c],
+        6 => POSEIDON_M7[b][c],
+        7 => POSEIDON_M8[b][c],
+        8 => POSEIDON_M9[b][c],
+        9 => POSEIDON_M10[b][c],
+        10 => POSEIDON_M11[b][c],
+        11 => POSEIDON_M12[b][c],
+        12 => POSEIDON_M13[b][c],
+        13 => POSEIDON_M14[b][c],
+        14 => POSEIDON_M15[b][c],
+        15 => POSEIDON_M16[b][c],
+        16 => POSEIDON_M17[b][c],
+        _ => panic!("poseidon constant"),
+    }
+} 

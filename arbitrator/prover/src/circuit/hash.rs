@@ -22,6 +22,8 @@ use crate::Bytes32;
 use sha3::Keccak256;
 use digest::Digest;
 
+use crate::circuit::poseidon_constants::{poseidon_c, poseidon_m};
+
 #[derive(Debug,Clone,Default,Eq,PartialEq/*,Serialize,Deserialize*/)]
 pub struct Params {
     c: Vec<Fr>,
@@ -80,21 +82,21 @@ fn sigma(a: Fr) -> Fr {
     a4*a
 }
 
-fn ark(v: Vec<Fr>, c: &Vec<Fr>, round: usize) -> Vec<Fr> {
+fn ark(v: Vec<Fr>, size: usize, round: usize) -> Vec<Fr> {
     let mut res = vec![];
 
     for i in 0..v.len() {
-        res.push(v[i] + c[i + round]);
+        res.push(v[i] + poseidon_c(size, i + round));
     }
     res
 }
 
-fn mix(v: Vec<Fr>, m: &Vec<Vec<Fr>>) -> Vec<Fr> {
+fn mix(v: Vec<Fr>, size: usize) -> Vec<Fr> {
     let mut res = vec![];
     for i in 0..v.len() {
         let mut lc = Fr::from(0);
         for j in 0..v.len() {
-            lc += m[i][j]*v[j];
+            lc += poseidon_m(size, i, j)*v[j];
         }
         res.push(lc)
     }
@@ -103,6 +105,7 @@ fn mix(v: Vec<Fr>, m: &Vec<Vec<Fr>>) -> Vec<Fr> {
 
 pub fn poseidon(params: &Params, inputs: Vec<Fr>) -> Fr {
     let n_rounds_p: Vec<usize> = vec![56, 57, 56, 60, 60, 63, 64, 63, 60, 66, 60, 65, 70, 60, 64, 68];
+    let size = inputs.len();
     let t = inputs.len() + 1;
     let nRoundsF = 8;
     let nRoundsP = n_rounds_p[t - 2];
@@ -116,7 +119,7 @@ pub fn poseidon(params: &Params, inputs: Vec<Fr>) -> Fr {
         }
     }
     for i in 0..(nRoundsF + nRoundsP) {
-        let ark_out = ark(mix_out.clone(), &params.c, t*i);
+        let ark_out = ark(mix_out.clone(), size, t*i);
         let mut mix_in = vec![];
         if i < nRoundsF/2 || i >= nRoundsP + nRoundsF/2 {
             for j in 0..t {
@@ -128,7 +131,7 @@ pub fn poseidon(params: &Params, inputs: Vec<Fr>) -> Fr {
                 mix_in.push(ark_out[j])
             }
         }
-        mix_out = mix(mix_in, &params.m);
+        mix_out = mix(mix_in, size);
     }
     mix_out[0]
 }
@@ -237,21 +240,21 @@ fn sigma_gadget(a: FpVar<Fr>) -> FpVar<Fr> {
     a4*a
 }
 
-fn ark_gadget(v: Vec<FpVar<Fr>>, c: &Vec<Fr>, round: usize) -> Vec<FpVar<Fr>> {
+fn ark_gadget(v: Vec<FpVar<Fr>>, size: usize, round: usize) -> Vec<FpVar<Fr>> {
     let mut res = vec![];
 
     for i in 0..v.len() {
-        res.push(v[i].clone() + FpVar::Constant(c[i + round]));
+        res.push(v[i].clone() + FpVar::Constant(poseidon_c(size, i + round)));
     }
     res
 }
 
-fn mix_gadget(v: Vec<FpVar<Fr>>, m: &Vec<Vec<Fr>>) -> Vec<FpVar<Fr>> {
+fn mix_gadget(v: Vec<FpVar<Fr>>, size: usize) -> Vec<FpVar<Fr>> {
     let mut res = vec![];
     for i in 0..v.len() {
-        let mut lc = FpVar::Constant(m[i][0])*v[0].clone();
+        let mut lc = FpVar::Constant(poseidon_m(size,i,0))*v[0].clone();
         for j in 1..v.len() {
-            lc += FpVar::Constant(m[i][j])*v[j].clone();
+            lc += FpVar::Constant(poseidon_m(size,i,j))*v[j].clone();
         }
         res.push(lc)
     }
@@ -261,6 +264,7 @@ fn mix_gadget(v: Vec<FpVar<Fr>>, m: &Vec<Vec<Fr>>) -> Vec<FpVar<Fr>> {
 pub fn poseidon_gadget(params: &Params, inputs: Vec<FpVar<Fr>>) -> FpVar<Fr> {
     let n_rounds_p: Vec<usize> = vec![56, 57, 56, 60, 60, 63, 64, 63, 60, 66, 60, 65, 70, 60, 64, 68];
     let t = inputs.len() + 1;
+    let size = inputs.len();
     let nRoundsF = 8;
     let nRoundsP = n_rounds_p[t - 2];
 
@@ -273,7 +277,7 @@ pub fn poseidon_gadget(params: &Params, inputs: Vec<FpVar<Fr>>) -> FpVar<Fr> {
         }
     }
     for i in 0..(nRoundsF + nRoundsP) {
-        let ark_out = ark_gadget(mix_out.clone(), &params.c, t*i);
+        let ark_out = ark_gadget(mix_out.clone(), size, t*i);
         let mut mix_in = vec![];
         if i < nRoundsF/2 || i >= nRoundsP + nRoundsF/2 {
             for j in 0..t {
@@ -285,7 +289,7 @@ pub fn poseidon_gadget(params: &Params, inputs: Vec<FpVar<Fr>>) -> FpVar<Fr> {
                 mix_in.push(ark_out[j].clone())
             }
         }
-        mix_out = mix_gadget(mix_in, &params.m);
+        mix_out = mix_gadget(mix_in, size);
     }
     mix_out[0].clone()
 }
