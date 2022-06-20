@@ -13,6 +13,7 @@ use ark_r1cs_std::ToBitsGadget;
 
 use crate::circuit::hash::{Params, poseidon_gadget, Proof, make_path, poseidon};
 
+pub mod poseidon_constants;
 pub mod hash;
 pub mod keccak;
 pub mod mimc;
