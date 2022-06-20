@@ -118,9 +118,7 @@ pub fn poseidon(params: &Params, inputs: Vec<Fr>) -> Fr {
         }
     }
     for i in 0..(nRoundsF + nRoundsP) {
-        println!("round mix out {} {}", i, mix_out[0]);
         let ark_out = ark(mix_out.clone(), size, t*i);
-        println!("round ark out {} {}", i, ark_out[0]);
         let mut mix_in = vec![];
         if i < nRoundsF/2 || i >= nRoundsP + nRoundsF/2 {
             for j in 0..t {
@@ -132,7 +130,6 @@ pub fn poseidon(params: &Params, inputs: Vec<Fr>) -> Fr {
                 mix_in.push(ark_out[j])
             }
         }
-        println!("round mix in {} {}", i, mix_in[0]);
         mix_out = mix(mix_in, size);
     }
     mix_out[0]

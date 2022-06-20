@@ -13020,7 +13020,6 @@ pub fn poseidon_c(a: usize, b: usize) -> Fr {
         4 => POSEIDON_C5[b],
         5 => POSEIDON_C6[b],
         6 => POSEIDON_C7[b],
-        /*
         7 => POSEIDON_C8[b],
         8 => POSEIDON_C9[b],
         9 => POSEIDON_C10[b],
@@ -13030,12 +13029,12 @@ pub fn poseidon_c(a: usize, b: usize) -> Fr {
         13 => POSEIDON_C14[b],
         14 => POSEIDON_C15[b],
         15 => POSEIDON_C16[b],
-        16 => POSEIDON_C17[b],*/
+        16 => POSEIDON_C17[b],
         _ => panic!("poseidon constant"),
     }
 }
 
-pub fn poseidon_m(a: usize, b: usize, c: usize) -> Fr {
+pub fn poseidon_m(a: usize, c: usize, b: usize) -> Fr {
     match a {
         1 => POSEIDON_M2[b][c],
         2 => POSEIDON_M3[b][c],
