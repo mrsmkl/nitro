@@ -19,6 +19,7 @@ use std::{
 };
 use structopt::StructOpt;
 use prover::circuit::FullWitness;
+use ark_bn254::Fr;
 
 #[derive(StructOpt)]
 #[structopt(name = "arbitrator-prover")]
@@ -335,7 +336,14 @@ fn main() -> Result<()> {
             match witness {
                 Some(w) => {
                     // println!("\nWitness: {:?}", w);
-                    witnesses.push(FullWitness {witness: w, before: before.clone().into(), after: after.clone().into()})
+                    witnesses.push(FullWitness {
+                        witness: w,
+                        before: before.clone().into(),
+                        after: after.clone().into(),
+                        key: Fr::from(123),
+                        before_salt: Fr::from(1234),
+                        after_salt: Fr::from(1235),
+                    })
                 }
                 None => {},
             };

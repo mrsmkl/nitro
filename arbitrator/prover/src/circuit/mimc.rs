@@ -9,6 +9,7 @@ use ark_relations::r1cs::ConstraintSystem;
 use ark_r1cs_std::fields::FieldVar;
 use ark_r1cs_std::R1CSVar;
 use ark_ff::field_new;
+use ark_ff::Field;
 
 const PARAMS : [Fr; 220] = [
     field_new!(Fr,"0"),
@@ -241,6 +242,25 @@ pub fn mimc_gadget(left: FpVar<Fr>, right: FpVar<Fr>, key: FpVar<Fr>) -> (FpVar<
         let c = FpVar::constant(PARAMS[i]);
         let t = key.clone() + left.clone() + c;
         let t5 = t.clone().square().unwrap().square().unwrap() * t.clone();
+        if i < n_rounds-1 {
+            let aux = right.clone();
+            right = left;
+            left = aux + t5;
+        } else {
+            right = right + t5;
+        }
+    }
+    (left, right)
+}
+
+pub fn mimc(left: Fr, right: Fr, key: Fr) -> (Fr, Fr) {
+    let n_rounds = 220;
+    let mut left = left.clone();
+    let mut right = right.clone();
+    for i in 0..n_rounds {
+        let c = PARAMS[i];
+        let t = key.clone() + left.clone() + c;
+        let t5 = t.clone().square().square() * t.clone();
         if i < n_rounds-1 {
             let aux = right.clone();
             right = left;

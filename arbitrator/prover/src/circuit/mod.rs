@@ -10,15 +10,15 @@ use ark_r1cs_std::eq::EqGadget;
 use ark_r1cs_std::boolean::{ /*AllocatedBool,*/Boolean};
 use ark_r1cs_std::fields::FieldVar;
 use ark_r1cs_std::ToBitsGadget;
-
-use crate::circuit::hash::{Params, poseidon_gadget, Proof, make_path, poseidon};
+use ark_r1cs_std::R1CSVar;
 
 pub mod poseidon_constants;
 pub mod hash;
 pub mod keccak;
 pub mod mimc;
 
-use ark_r1cs_std::R1CSVar;
+use crate::circuit::hash::{Params, poseidon_gadget, Proof, make_path, poseidon};
+use crate::circuit::mimc::{mimc_gadget, mimc};
 
 #[derive(Debug, Clone)]
 pub struct Machine {
@@ -1488,12 +1488,19 @@ use ark_relations::r1cs::{ConstraintSynthesizer,SynthesisError};
 pub struct FullWitness {
     pub witness: Witness,
     pub before: Fr,
+    pub before_salt: Fr,
     pub after: Fr,
+    pub after_salt: Fr,
+    pub key: Fr,
 }
 
 impl FullWitness {
     fn inputs(&self) -> Vec<Fr> {
-        vec![self.before.clone(), self.after.clone()]
+        let params = Params::new();
+        let key_hash = poseidon(&params, vec![self.key.clone()]);
+        let (before_en1, before_en2) = mimc(self.before.clone(), self.before_salt.clone(), self.key.clone());
+        let (after_en1, after_en2) = mimc(self.after.clone(), self.after_salt.clone(), self.key.clone());
+        vec![key_hash, before_en1, before_en2, after_en1, after_en2]
     }
 }
 
@@ -1525,12 +1532,52 @@ impl ConstraintSynthesizer<Fr> for FullWitness {
         cs: ConstraintSystemRef<Fr>,
     ) -> Result<(), SynthesisError> {
         let params = Params::new();
+
+        let key_hash = poseidon(&params, vec![self.key.clone()]);
+        let (before_en1, before_en2) = mimc(self.before.clone(), self.before_salt.clone(), self.key.clone());
+        let (after_en1, after_en2) = mimc(self.after.clone(), self.after_salt.clone(), self.key.clone());
+
+        let key_in = FpVar::Var(
+            AllocatedFp::<Fr>::new_input(cs.clone(), || Ok(key_hash)).unwrap(),
+        );
+        let before_in1 = FpVar::Var(
+            AllocatedFp::<Fr>::new_input(cs.clone(), || Ok(before_en1)).unwrap(),
+        );
+        let before_in2 = FpVar::Var(
+            AllocatedFp::<Fr>::new_input(cs.clone(), || Ok(before_en2)).unwrap(),
+        );
+        let after_in1 = FpVar::Var(
+            AllocatedFp::<Fr>::new_input(cs.clone(), || Ok(after_en1)).unwrap(),
+        );
+        let after_in2 = FpVar::Var(
+            AllocatedFp::<Fr>::new_input(cs.clone(), || Ok(after_en2)).unwrap(),
+        );
+
+        let key_var = FpVar::Var(
+            AllocatedFp::<Fr>::new_witness(cs.clone(), || Ok(self.key)).unwrap(),
+        );
         let before_var = FpVar::Var(
-            AllocatedFp::<Fr>::new_input(cs.clone(), || Ok(self.before)).unwrap(),
+            AllocatedFp::<Fr>::new_witness(cs.clone(), || Ok(self.before)).unwrap(),
+        );
+        let before_salt_var = FpVar::Var(
+            AllocatedFp::<Fr>::new_witness(cs.clone(), || Ok(self.before_salt)).unwrap(),
         );
         let after_var = FpVar::Var(
-            AllocatedFp::<Fr>::new_input(cs.clone(), || Ok(self.after)).unwrap(),
+            AllocatedFp::<Fr>::new_witness(cs.clone(), || Ok(self.after)).unwrap(),
         );
+        let after_salt_var = FpVar::Var(
+            AllocatedFp::<Fr>::new_witness(cs.clone(), || Ok(self.after_salt)).unwrap(),
+        );
+
+        let (before_out1, before_out2) = mimc_gadget(before_var.clone(), before_salt_var, key_var.clone());
+        let (after_out1, after_out2) = mimc_gadget(after_var.clone(), after_salt_var, key_var.clone());
+        let key_out = poseidon_gadget(&params, vec![key_var]);
+        before_out1.enforce_equal(&before_in1).unwrap();
+        before_out2.enforce_equal(&before_in2).unwrap();
+        after_out1.enforce_equal(&after_in1).unwrap();
+        after_out2.enforce_equal(&after_in2).unwrap();
+        key_out.enforce_equal(&key_in).unwrap();
+
         let (before, after) = make_proof(
             cs.clone(),
             &params,
