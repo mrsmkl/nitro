@@ -3,20 +3,11 @@ use ark_r1cs_std::{
     fields::fp::{AllocatedFp, FpVar},
 };
 use ark_bn254::Fr;
-// use ark_relations::r1cs::ConstraintSynthesizer;
-//use ark_relations::r1cs::SynthesisError;
 use ark_relations::r1cs::ConstraintSystemRef;
-//use ark_r1cs_std::eq::EqGadget;
 use ark_relations::r1cs::ConstraintSystem;
 
-use ark_std::UniformRand;
-use ark_ff::{Field,PrimeField,BigInteger};
 use ark_r1cs_std::fields::FieldVar;
 use ark_r1cs_std::R1CSVar;
-
-use ark_r1cs_std::boolean::AllocatedBool;
-use ark_r1cs_std::boolean::Boolean;
-
 use ark_ff::field_new;
 
 const PARAMS : [Fr; 220] = [
@@ -267,10 +258,6 @@ pub fn test() {
     let v1 = FpVar::Var(AllocatedFp::<Fr>::new_witness(cs.clone(), || Ok(Fr::from(1))).unwrap());
     let v2 = FpVar::Var(AllocatedFp::<Fr>::new_witness(cs.clone(), || Ok(Fr::from(2))).unwrap());
     let v3 = FpVar::Var(AllocatedFp::<Fr>::new_witness(cs.clone(), || Ok(Fr::from(3))).unwrap());
-    let v4 = FpVar::Var(AllocatedFp::<Fr>::new_witness(cs.clone(), || Ok(Fr::from(123))).unwrap());
-    let v5 = FpVar::Var(AllocatedFp::<Fr>::new_witness(cs.clone(), || Ok(Fr::from(123))).unwrap());
-    let v6 = FpVar::Var(AllocatedFp::<Fr>::new_witness(cs.clone(), || Ok(Fr::from(123))).unwrap());
-    let _v7 = FpVar::Var(AllocatedFp::<Fr>::new_witness(cs.clone(), || Ok(Fr::from(123))).unwrap());
     let (res, res2) = mimc_gadget(v1, v2, v3);
     println!("gadget {} {}", res.value().unwrap(), res2.value().unwrap());
     println!("constraints {}", cs.num_constraints());

@@ -138,7 +138,7 @@ impl Value {
             Value::F64(x) => x.to_bits().into(),
             Value::RefNull => 0,
             Value::FuncRef(x) => x.into(),
-            Value::InternalRef(pc) => 0, // TODO: implement this
+            Value::InternalRef(_pc) => 0, // TODO: implement this
             Value::StackBoundary => 0,
         }
     }

@@ -9,7 +9,6 @@ use ark_relations::r1cs::ConstraintSystemRef;
 //use ark_r1cs_std::eq::EqGadget;
 use ark_relations::r1cs::ConstraintSystem;
 
-use ark_std::UniformRand;
 use ark_ff::{Field,PrimeField,BigInteger};
 use ark_r1cs_std::fields::FieldVar;
 use ark_r1cs_std::R1CSVar;
@@ -102,7 +101,7 @@ fn mix(v: Vec<Fr>, size: usize) -> Vec<Fr> {
     res
 }
 
-pub fn poseidon(params: &Params, inputs: Vec<Fr>) -> Fr {
+pub fn poseidon(_params: &Params, inputs: Vec<Fr>) -> Fr {
     let n_rounds_p: Vec<usize> = vec![56, 57, 56, 60, 60, 63, 64, 63, 60, 66, 60, 65, 70, 60, 64, 68];
     let size = inputs.len();
     let t = inputs.len() + 1;
@@ -204,7 +203,7 @@ impl Hasher<FrHash> for Poseidon {
             elems: vec![],
         }
     }
-    fn update_title(&mut self, b: &[u8]) {
+    fn update_title(&mut self, _b: &[u8]) {
         // self.i.update(b)
     }
     fn update_u64(&mut self, arg: u64) {
@@ -260,7 +259,7 @@ fn mix_gadget(v: Vec<FpVar<Fr>>, size: usize) -> Vec<FpVar<Fr>> {
     res
 }
 
-pub fn poseidon_gadget(params: &Params, inputs: Vec<FpVar<Fr>>) -> FpVar<Fr> {
+pub fn poseidon_gadget(_params: &Params, inputs: Vec<FpVar<Fr>>) -> FpVar<Fr> {
     let n_rounds_p: Vec<usize> = vec![56, 57, 56, 60, 60, 63, 64, 63, 60, 66, 60, 65, 70, 60, 64, 68];
     let t = inputs.len() + 1;
     let size = inputs.len();
@@ -345,10 +344,6 @@ pub fn test() {
     let v1 = FpVar::Var(AllocatedFp::<Fr>::new_witness(cs.clone(), || Ok(Fr::from(123))).unwrap());
     let v2 = FpVar::Var(AllocatedFp::<Fr>::new_witness(cs.clone(), || Ok(Fr::from(123))).unwrap());
     let v3 = FpVar::Var(AllocatedFp::<Fr>::new_witness(cs.clone(), || Ok(Fr::from(123))).unwrap());
-    let v4 = FpVar::Var(AllocatedFp::<Fr>::new_witness(cs.clone(), || Ok(Fr::from(123))).unwrap());
-    let v5 = FpVar::Var(AllocatedFp::<Fr>::new_witness(cs.clone(), || Ok(Fr::from(123))).unwrap());
-    let v6 = FpVar::Var(AllocatedFp::<Fr>::new_witness(cs.clone(), || Ok(Fr::from(123))).unwrap());
-    let _v7 = FpVar::Var(AllocatedFp::<Fr>::new_witness(cs.clone(), || Ok(Fr::from(123))).unwrap());
     let res = poseidon_gadget(&params, vec![v1, v2, v3]);
     println!("gadget {}", res.value().unwrap());
     println!("constraints {}", cs.num_constraints());

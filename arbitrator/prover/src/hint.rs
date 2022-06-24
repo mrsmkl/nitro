@@ -1,5 +1,5 @@
 use crate::circuit::{
-    MachineHint,ModuleHint,InstructionHint,InstProof,InstDropHint,InstConstHint,InstLocalGetHint,
+    MachineHint,ModuleHint,InstProof,InstDropHint,InstConstHint,InstLocalGetHint,
     StackFrameHint,
     InstLocalSetHint,
 };
@@ -79,7 +79,7 @@ impl PoseidonMachine {
             }
             Opcode::I32Const => {
                 println!("module hash {}", mole.hash());
-                let mut mach = self.clone();
+                let mach = self.clone();
                 let machine_hint = mach.hint();
                 println!("value stack {}", machine_hint.valueStack);
                 println!("internal stack {}", machine_hint.internalStack);

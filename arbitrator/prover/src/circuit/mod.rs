@@ -524,8 +524,8 @@ impl Inst for InstDrop {
         // println!("drop value {}", self.val.value().unwrap());
         let before = mach.clone();
         let after = execute_drop(params, &mach);
-        let before_elim = elim_stack(params, &before);
-        let after_elim = elim_stack(params, &after);
+        // let before_elim = elim_stack(params, &before);
+        // let after_elim = elim_stack(params, &after);
         (before, after)
     }
 }
@@ -1042,8 +1042,8 @@ impl InstCS for InstLocalSet {
         // println!("old val {}, base value stack {}", self.old_val.value().unwrap(), mach.valueStack.base.value().unwrap());
         mach.valueStack.push(self.val.clone());
         let before = mach.clone();
-        let before_elim = elim_stack(params, &before);
         /*
+        let before_elim = elim_stack(params, &before);
         println!(
             "before frame stack {}, value {}",
             before_elim.frameStack.value().unwrap(),
@@ -1503,7 +1503,7 @@ impl ConstraintSynthesizer<Fr> for Witness {
         cs: ConstraintSystemRef<Fr>,
     ) -> Result<(), SynthesisError> {
         let params = Params::new();
-        let (before, after) = make_proof(
+        let (_before, _after) = make_proof(
             cs.clone(),
             &params,
             &self.machine_hint,
@@ -1602,7 +1602,7 @@ pub fn test_many(w: Vec<FullWitness>) {
     let (pk, vk) = InnerSNARK::setup(circuit.clone(), &mut rng).unwrap();
     println!("verifier key: {:?}", vk);
     let mut output = std::fs::File::create("test.sol").unwrap();
-    write!(output, "{}", process_template(vk.clone()));
+    write!(output, "{}", process_template(vk.clone())).unwrap();
     // for i in 0..w.len() {
     for i in 0..1 {
         let circuit = w[i].clone();
@@ -1640,6 +1640,6 @@ pub fn test(w: Witness) {
     );
     println!("constraints {}", cs.num_constraints());
     // println!("constraints {} {}", cs.num_constraints(), cs.is_satisfied().unwrap());
-    // println!("before {}, after {}", before.value().unwrap(), after.value().unwrap());
+    println!("before {}, after {}", before.value().unwrap(), after.value().unwrap());
 }
 

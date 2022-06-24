@@ -4,7 +4,7 @@
 use eyre::{Context, Result};
 use fnv::{FnvHashMap as HashMap, FnvHashSet as HashSet};
 use prover::{
-    machine::{GlobalState, InboxIdentifier, Machine, PoseidonMachine, MachineStatus, PreimageResolver},
+    machine::{GlobalState, InboxIdentifier, /* Machine, */ PoseidonMachine, MachineStatus, PreimageResolver},
     utils::{Bytes32, CBytes},
     wavm::Opcode,
 };
@@ -132,12 +132,13 @@ struct SimpleProfile {
 const INBOX_HEADER_LEN: usize = 40; // also in test-case's host-io.rs & contracts's OneStepProverHostIo.sol
 const DELAYED_HEADER_LEN: usize = 112; // also in test-case's host-io.rs & contracts's OneStepProverHostIo.sol
 
+/*
 fn main() -> Result<()> {
     prover::circuit::hash::test();
     Ok(())
-}
+}*/
 
-fn main2() -> Result<()> {
+fn main() -> Result<()> {
     let opts = Opts::from_args();
 
     let mut inbox_contents = HashMap::default();
