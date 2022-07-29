@@ -151,17 +151,19 @@ abstract contract AbsRollupUserLogic is
 
     /**
      * @notice Create a new node and move stake onto it
-     * @param assertion The assertion data
      * @param expectedNodeHash The hash of the node being created (protects against reorgs)
      */
     function stakeOnNewNode(
-        RollupLib.Assertion calldata assertion,
+        // RollupLib.Assertion calldata assertion,
         bytes32 expectedNodeHash,
-        uint256 prevNodeInboxMaxCount
+        // uint256 prevNodeInboxMaxCount
+        uint[19] memory inputs,
+        bytes memory proof
     ) public onlyValidator whenNotPaused {
         require(isStakedOnLatestConfirmed(msg.sender), "NOT_STAKED");
         // Ensure staker is staked on the previous node
         uint64 prevNode = latestStakedNode(msg.sender);
+        /*
 
         {
             uint256 timeSinceLastNode = block.number - getNode(prevNode).createdAtBlock;
@@ -186,7 +188,8 @@ abstract contract AbsRollupUserLogic is
                 "BAD_PREV_STATUS"
             );
         }
-        createNewNode(assertion, prevNode, prevNodeInboxMaxCount, expectedNodeHash);
+        */
+        createNewNode(prevNode, expectedNodeHash, inputs, proof);
 
         stakeOnNode(msg.sender, latestNodeCreated());
     }
@@ -590,17 +593,15 @@ contract RollupUserLogic is AbsRollupUserLogic, IRollupUser {
 
     /**
      * @notice Create a new stake on a new node
-     * @param assertion Assertion describing the state change between the old node and the new one
      * @param expectedNodeHash Node hash of the node that will be created
-     * @param prevNodeInboxMaxCount Total of messages in the inbox as of the previous node
      */
     function newStakeOnNewNode(
-        RollupLib.Assertion calldata assertion,
         bytes32 expectedNodeHash,
-        uint256 prevNodeInboxMaxCount
+        uint[19] memory inputs,
+        bytes memory proof
     ) external payable override {
         _newStake(msg.value);
-        stakeOnNewNode(assertion, expectedNodeHash, prevNodeInboxMaxCount);
+        stakeOnNewNode(expectedNodeHash, inputs, proof);
     }
 
     /**
@@ -663,18 +664,16 @@ contract ERC20RollupUserLogic is AbsRollupUserLogic, IRollupUserERC20 {
     /**
      * @notice Create a new stake on a new node
      * @param tokenAmount Amount of the rollups staking token to stake
-     * @param assertion Assertion describing the state change between the old node and the new one
      * @param expectedNodeHash Node hash of the node that will be created
-     * @param prevNodeInboxMaxCount Total of messages in the inbox as of the previous node
      */
     function newStakeOnNewNode(
         uint256 tokenAmount,
-        RollupLib.Assertion calldata assertion,
         bytes32 expectedNodeHash,
-        uint256 prevNodeInboxMaxCount
+        uint[19] memory inputs,
+        bytes memory proof
     ) external override {
         _newStake(tokenAmount);
-        stakeOnNewNode(assertion, expectedNodeHash, prevNodeInboxMaxCount);
+        stakeOnNewNode(expectedNodeHash, inputs, proof);
         /// @dev This is an external call, safe because it's at the end of the function
         receiveTokens(tokenAmount);
     }

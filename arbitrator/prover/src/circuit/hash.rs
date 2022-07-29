@@ -145,7 +145,7 @@ pub struct Poseidon {
 #[derive(Debug,Clone,Default,Eq,PartialEq,Serialize,Deserialize,Hash)]
 pub struct FrHash {
     #[serde(skip)]
-    hash: Fr
+    pub hash: Fr
 }
 
 impl FrHash {

@@ -513,17 +513,33 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         bytes32 sequencerBatchAcc;
     }
 
+    function createNodeSnark(bytes memory proof, uint[19] memory inputs) internal {
+
+    }
+
+    uint public secretHash;
+    uint public wasmHash;
+
     function createNewNode(
-        RollupLib.Assertion calldata assertion,
+        // RollupLib.Assertion calldata assertion,
         uint64 prevNodeNum,
-        uint256 prevNodeInboxMaxCount,
-        bytes32 expectedNodeHash
+        // uint256 prevNodeInboxMaxCount,
+        bytes32 expectedNodeHash,
+        uint[19] memory inputs,
+        bytes memory proof
     ) internal returns (bytes32 newNodeHash) {
+        /*
         require(
             assertion.afterState.machineStatus == MachineStatus.FINISHED ||
                 assertion.afterState.machineStatus == MachineStatus.ERRORED,
             "BAD_AFTER_STATUS"
-        );
+        );*/
+        require(inputs[0] == secretHash);
+        require(inputs[2] == wasmHash);
+        require(inputs[3] < block.number && inputs[3] >= block.number - 10);
+        // state hash: inputs[16];
+        // prev hash: inputs[17];
+        createNodeSnark(proof, inputs);
 
         StakeOnNewNodeFrame memory memoryFrame;
         {
@@ -531,7 +547,10 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
             memoryFrame.prevNode = getNode(prevNodeNum);
             memoryFrame.currentInboxSize = sequencerBridge.batchCount();
 
+            require(bytes32(inputs[17]) == memoryFrame.prevNode.stateHash);
+
             // Make sure the previous state is correct against the node being built on
+            /*
             require(
                 RollupLib.stateHash(assertion.beforeState, prevNodeInboxMaxCount) ==
                     memoryFrame.prevNode.stateHash,
@@ -562,10 +581,11 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
             if (afterInboxCount > 0) {
                 memoryFrame.sequencerBatchAcc = sequencerBridge.inboxAccs(afterInboxCount - 1);
             }
+            */
         }
 
         {
-            memoryFrame.executionHash = RollupLib.executionHash(assertion);
+            memoryFrame.executionHash = bytes32(inputs[16]); // RollupLib.executionHash(assertion);
 
             memoryFrame.deadlineBlock = uint64(block.number) + confirmPeriodBlocks;
 
@@ -587,6 +607,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
             require(newNodeHash == expectedNodeHash, "UNEXPECTED_NODE_HASH");
 
             memoryFrame.node = NodeLib.createNode(
+                /*
                 RollupLib.stateHash(assertion.afterState, memoryFrame.currentInboxSize),
                 RollupLib.challengeRootHash(
                     memoryFrame.executionHash,
@@ -594,6 +615,11 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
                     wasmModuleRoot
                 ),
                 RollupLib.confirmHash(assertion),
+                */
+                // jsut use the same hash for these now
+                bytes32(inputs[16]),
+                bytes32(inputs[16]),
+                bytes32(inputs[16]),
                 prevNodeNum,
                 memoryFrame.deadlineBlock,
                 newNodeHash
@@ -611,6 +637,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
             nodeCreated(memoryFrame.node);
         }
 
+/*
         emit NodeCreated(
             latestNodeCreated(),
             memoryFrame.prevNode.nodeHash,
@@ -621,7 +648,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
             wasmModuleRoot,
             memoryFrame.currentInboxSize
         );
-
+*/
         return newNodeHash;
     }
 }

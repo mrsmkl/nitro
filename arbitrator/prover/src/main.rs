@@ -133,6 +133,8 @@ struct SimpleProfile {
 const INBOX_HEADER_LEN: usize = 40; // also in test-case's host-io.rs & contracts's OneStepProverHostIo.sol
 const DELAYED_HEADER_LEN: usize = 112; // also in test-case's host-io.rs & contracts's OneStepProverHostIo.sol
 
+use prover::circuit::hash::{FrHash, Poseidon};
+
 /*
 fn main() -> Result<()> {
     prover::circuit::hash::test();
@@ -141,6 +143,8 @@ fn main() -> Result<()> {
 
 fn main() -> Result<()> {
     let opts = Opts::from_args();
+
+    println!("value stack {}", prover::machine::gen_hash_value_stack::<_,Poseidon>(&vec![]));
 
     let mut inbox_contents = HashMap::default();
     let mut inbox_position = opts.inbox_position;
