@@ -233,26 +233,28 @@ abstract contract AbsRollupUserLogic is
         reduceStakeTo(msg.sender, target);
     }
 
+    function checkChallengeSnark(bytes memory proof, uint stateHash, uint otherStateHash, uint timeout) internal {
+
+    }
+
     /**
      * @notice Start a challenge between the given stakers over the node created by the first staker assuming that the two are staked on conflicting nodes. N.B.: challenge creator does not necessarily need to be one of the two asserters.
      * @param stakers Stakers engaged in the challenge. The first staker should be staked on the first node
      * @param nodeNums Nodes of the stakers engaged in the challenge. The first node should be the earliest and is the one challenged
-     * @param machineStatuses The before and after machine status for the first assertion
-     * @param globalStates The before and after global state for the first assertion
-     * @param numBlocks The number of L2 blocks contained in the first assertion
-     * @param secondExecutionHash The execution hash of the second assertion
      * @param proposedTimes Times that the two nodes were proposed
-     * @param wasmModuleRoots The wasm module roots at the time of the creation of each assertion
      */
     function createChallenge(
         address[2] calldata stakers,
         uint64[2] calldata nodeNums,
+        uint256[2] calldata proposedTimes,
+        bytes memory proof
+        /*
         MachineStatus[2] calldata machineStatuses,
         GlobalState[2] calldata globalStates,
         uint64 numBlocks,
         bytes32 secondExecutionHash,
-        uint256[2] calldata proposedTimes,
         bytes32[2] calldata wasmModuleRoots
+        */
     ) external onlyValidator whenNotPaused {
         require(nodeNums[0] < nodeNums[1], "WRONG_ORDER");
         require(nodeNums[1] <= latestNodeCreated(), "NOT_PROPOSED");
@@ -271,7 +273,10 @@ abstract contract AbsRollupUserLogic is
         require(nodeHasStaker(nodeNums[0], stakers[0]), "STAKER1_NOT_STAKED");
         require(nodeHasStaker(nodeNums[1], stakers[1]), "STAKER2_NOT_STAKED");
 
+        checkChallengeSnark(proof, uint(node1.stateHash), uint(node2.stateHash), proposedTimes[1]);
+
         // Check param data against challenge hash
+        /*
         require(
             node1.challengeHash ==
                 RollupLib.challengeRootHash(
@@ -291,6 +296,7 @@ abstract contract AbsRollupUserLogic is
                 ),
             "CHAL_HASH2"
         );
+        */
 
         // Calculate upper limit for allowed node proposal time:
         uint256 commonEndTime = getNodeStorage(node1.prevNum).firstChildBlock +
@@ -303,12 +309,10 @@ abstract contract AbsRollupUserLogic is
             return;
         }
         // Start a challenge between staker1 and staker2. Staker1 will defend the correctness of node1, and staker2 will challenge it.
-        uint64 challengeIndex = createChallengeHelper(
+        uint64 challengeIndex = 123;
+        createChallengeHelper(
             stakers,
-            machineStatuses,
-            globalStates,
-            numBlocks,
-            wasmModuleRoots,
+            uint(node1.stateHash),
             commonEndTime - proposedTimes[0],
             commonEndTime - proposedTimes[1]
         ); // trusted external call
@@ -320,13 +324,11 @@ abstract contract AbsRollupUserLogic is
 
     function createChallengeHelper(
         address[2] calldata stakers,
-        MachineStatus[2] calldata machineStatuses,
-        GlobalState[2] calldata globalStates,
-        uint64 numBlocks,
-        bytes32[2] calldata wasmModuleRoots,
+        uint stateHash,
         uint256 asserterTimeLeft,
         uint256 challengerTimeLeft
     ) internal returns (uint64) {
+        /*
         return
             challengeManager.createChallenge(
                 wasmModuleRoots[0],
@@ -338,6 +340,7 @@ abstract contract AbsRollupUserLogic is
                 asserterTimeLeft,
                 challengerTimeLeft
             );
+        */
     }
 
     /**
