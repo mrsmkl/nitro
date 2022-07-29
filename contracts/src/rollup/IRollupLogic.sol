@@ -18,7 +18,7 @@ interface IRollupUserAbs is IRollupCore {
 
     function rejectNextNode(address stakerAddress) external;
 
-    function confirmNextNode(bytes32 blockHash, bytes32 sendRoot) external;
+    function confirmNextNode(bytes32 sendRoot, bytes memory proof) external;
 
     function stakeOnExistingNode(uint64 nodeNum, bytes32 nodeHash) external;
 
@@ -188,8 +188,8 @@ interface IRollupAdmin {
 
     function forceConfirmNode(
         uint64 nodeNum,
-        bytes32 blockHash,
-        bytes32 sendRoot
+        bytes32 sendRoot,
+        bytes memory proof
     ) external;
 
     function setLoserStakeEscrow(address newLoserStakerEscrow) external;

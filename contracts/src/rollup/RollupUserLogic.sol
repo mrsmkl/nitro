@@ -77,10 +77,9 @@ abstract contract AbsRollupUserLogic is
 
     /**
      * @notice Confirm the next unresolved node
-     * @param blockHash The block hash at the end of the assertion
      * @param sendRoot The send root at the end of the assertion
      */
-    function confirmNextNode(bytes32 blockHash, bytes32 sendRoot)
+    function confirmNextNode(bytes32 sendRoot, bytes memory proof)
         external
         onlyValidator
         whenNotPaused
@@ -111,7 +110,7 @@ abstract contract AbsRollupUserLogic is
             "NOT_ALL_STAKED"
         );
 
-        confirmNode(nodeNum, blockHash, sendRoot);
+        confirmNode(nodeNum, sendRoot, proof);
     }
 
     /**

@@ -272,11 +272,11 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, SecondaryLogicUUPSUpgrade
 
     function forceConfirmNode(
         uint64 nodeNum,
-        bytes32 blockHash,
-        bytes32 sendRoot
+        bytes32 sendRoot,
+        bytes memory proof
     ) external override whenPaused {
         // this skips deadline, staker and zombie validation
-        confirmNode(nodeNum, blockHash, sendRoot);
+        confirmNode(nodeNum, sendRoot, proof);
         emit OwnerFunctionCalled(24);
     }
 

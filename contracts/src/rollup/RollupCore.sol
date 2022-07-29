@@ -257,22 +257,28 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         _firstUnresolvedNode++;
     }
 
+    function checkConfirmSnark(bytes memory proof, uint sendRoot, uint stateHash) internal {
+
+    }
+
     function confirmNode(
         uint64 nodeNum,
-        bytes32 blockHash,
-        bytes32 sendRoot
+        bytes32 sendRoot,
+        bytes memory proof
     ) internal {
         Node storage node = getNodeStorage(nodeNum);
+        bytes32 stateHash = node.stateHash;
+        checkConfirmSnark(proof, uint(sendRoot), uint(stateHash));
         // Authenticate data against node's confirm data pre-image
-        require(node.confirmData == RollupLib.confirmHash(blockHash, sendRoot), "CONFIRM_DATA");
+        require(node.confirmData == stateHash, "CONFIRM_DATA");
 
         // trusted external call to outbox
-        outbox.updateSendRoot(sendRoot, blockHash);
+        outbox.updateSendRoot(sendRoot, stateHash);
 
         _latestConfirmed = nodeNum;
         _firstUnresolvedNode = nodeNum + 1;
 
-        emit NodeConfirmed(nodeNum, blockHash, sendRoot);
+        emit NodeConfirmed(nodeNum, stateHash, sendRoot);
     }
 
     /**
