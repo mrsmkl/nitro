@@ -85,6 +85,7 @@ interface ISequencerInbox {
     function inboxAccs(uint256 index) external view returns (bytes32);
 
     function batchCount() external view returns (uint256);
+    function batchCountForBlock(uint bn) external view returns (uint256);
 
     function addSequencerL2Batch(
         uint256 sequenceNumber,

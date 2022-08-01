@@ -22,6 +22,8 @@ import {MAX_DATA_SIZE} from "../libraries/Constants.sol";
  */
 contract SequencerInbox is DelegateCallAware, GasRefundEnabled, ISequencerInbox {
     bytes32[] public override inboxAccs;
+    mapping (uint => uint) public inboxLengths;
+    mapping (uint => bytes32) public inboxStates;
     uint256 public totalDelayedMessagesRead;
 
     IBridge public delayedBridge;
@@ -276,12 +278,22 @@ contract SequencerInbox is DelegateCallAware, GasRefundEnabled, ISequencerInbox 
 
         acc = keccak256(abi.encodePacked(beforeAcc, dataHash, delayedAcc));
         inboxAccs.push(acc);
+        inboxLengths[block.number] = inboxAccs.length;
+        inboxStates[block.number] = acc;
         totalDelayedMessagesRead = afterDelayedMessagesRead;
     }
 
     function batchCount() external view override returns (uint256) {
         return inboxAccs.length;
     }
+
+    function batchCountForBlock(uint bn) external view returns (uint256) {
+        return inboxLengths[bn];
+    }
+    function inboxHashForBlock(uint bn) external view returns (bytes32) {
+        return inboxStates[bn];
+    }
+
 
     /**
      * @notice Set max delay for sequencer inbox

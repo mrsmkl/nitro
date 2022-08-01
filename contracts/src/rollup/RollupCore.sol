@@ -540,9 +540,9 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
                 assertion.afterState.machineStatus == MachineStatus.ERRORED,
             "BAD_AFTER_STATUS"
         );*/
-        require(inputs[0] == secretHash);
-        require(inputs[2] == wasmHash);
-        require(inputs[3] < block.number && inputs[3] >= block.number - 10);
+        require(inputs[0] == secretHash, "wrong secret");
+        require(inputs[2] == wasmHash, "wrong wasm root");
+        require(inputs[3] < block.number && inputs[3] >= block.number - 10, "wrong block number");
         // state hash: inputs[16];
         // prev hash: inputs[17];
         createNodeSnark(proof, inputs);
@@ -551,9 +551,10 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         {
             // validate data
             memoryFrame.prevNode = getNode(prevNodeNum);
-            memoryFrame.currentInboxSize = sequencerBridge.batchCount();
+            memoryFrame.currentInboxSize = sequencerBridge.batchCountForBlock(inputs[3]);
 
-            require(bytes32(inputs[17]) == memoryFrame.prevNode.stateHash);
+            require(bytes32(inputs[17]) == memoryFrame.prevNode.stateHash, "wrong previous state");
+            require(inputs[18] == memoryFrame.currentInboxSize, "wrong inbox size");
 
             // Make sure the previous state is correct against the node being built on
             /*
