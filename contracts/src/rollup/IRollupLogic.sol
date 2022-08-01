@@ -24,7 +24,7 @@ interface IRollupUserAbs is IRollupCore {
 
     function stakeOnNewNode(
         bytes32 expectedNodeHash,
-        uint[19] memory inputs,
+        uint[20] memory inputs,
         bytes memory proof
     ) external;
 
@@ -62,7 +62,7 @@ interface IRollupUser is IRollupUserAbs {
 
     function newStakeOnNewNode(
         bytes32 expectedNodeHash,
-        uint[19] memory inputs,
+        uint[20] memory inputs,
         bytes memory proof
     ) external payable;
 
@@ -79,7 +79,7 @@ interface IRollupUserERC20 is IRollupUserAbs {
     function newStakeOnNewNode(
         uint256 tokenAmount,
         bytes32 expectedNodeHash,
-        uint[19] memory inputs,
+        uint[20] memory inputs,
         bytes memory proof
     ) external;
 
@@ -182,7 +182,7 @@ interface IRollupAdmin {
     function forceCreateNode(
         uint64 prevNode,
         bytes32 expectedNodeHash,
-        uint[19] memory inputs,
+        uint[20] memory inputs,
         bytes memory proof
     ) external;
 

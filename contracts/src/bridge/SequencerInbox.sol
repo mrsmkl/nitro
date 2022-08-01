@@ -294,7 +294,6 @@ contract SequencerInbox is DelegateCallAware, GasRefundEnabled, ISequencerInbox 
         return inboxStates[bn];
     }
 
-
     /**
      * @notice Set max delay for sequencer inbox
      * @param maxTimeVariation_ the maximum time variation parameters

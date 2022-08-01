@@ -156,7 +156,7 @@ abstract contract AbsRollupUserLogic is
         // RollupLib.Assertion calldata assertion,
         bytes32 expectedNodeHash,
         // uint256 prevNodeInboxMaxCount
-        uint[19] memory inputs,
+        uint[20] memory inputs,
         bytes memory proof
     ) public onlyValidator whenNotPaused {
         require(isStakedOnLatestConfirmed(msg.sender), "NOT_STAKED");
@@ -599,7 +599,7 @@ contract RollupUserLogic is AbsRollupUserLogic, IRollupUser {
      */
     function newStakeOnNewNode(
         bytes32 expectedNodeHash,
-        uint[19] memory inputs,
+        uint[20] memory inputs,
         bytes memory proof
     ) external payable override {
         _newStake(msg.value);
@@ -671,7 +671,7 @@ contract ERC20RollupUserLogic is AbsRollupUserLogic, IRollupUserERC20 {
     function newStakeOnNewNode(
         uint256 tokenAmount,
         bytes32 expectedNodeHash,
-        uint[19] memory inputs,
+        uint[20] memory inputs,
         bytes memory proof
     ) external override {
         _newStake(tokenAmount);

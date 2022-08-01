@@ -519,7 +519,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         bytes32 sequencerBatchAcc;
     }
 
-    function createNodeSnark(bytes memory proof, uint[19] memory inputs) internal {
+    function createNodeSnark(bytes memory proof, uint[20] memory inputs) internal {
 
     }
 
@@ -531,7 +531,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         uint64 prevNodeNum,
         // uint256 prevNodeInboxMaxCount,
         bytes32 expectedNodeHash,
-        uint[19] memory inputs,
+        uint[20] memory inputs,
         bytes memory proof
     ) internal returns (bytes32 newNodeHash) {
         /*
@@ -555,6 +555,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
 
             require(bytes32(inputs[17]) == memoryFrame.prevNode.stateHash, "wrong previous state");
             require(inputs[18] == memoryFrame.currentInboxSize, "wrong inbox size");
+            require(bytes32(inputs[19]) == sequencerBridge.inboxHashForBlock(inputs[3]), "wrong inbox hash");
 
             // Make sure the previous state is correct against the node being built on
             /*

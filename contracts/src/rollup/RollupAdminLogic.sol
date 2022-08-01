@@ -260,7 +260,7 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, SecondaryLogicUUPSUpgrade
     function forceCreateNode(
         uint64 prevNode,
         bytes32 expectedNodeHash,
-        uint[19] memory inputs,
+        uint[20] memory inputs,
         bytes memory proof
     ) external override whenPaused {
         require(prevNode == latestConfirmed(), "ONLY_LATEST_CONFIRMED");
