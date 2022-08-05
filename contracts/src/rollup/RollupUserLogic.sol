@@ -309,8 +309,7 @@ abstract contract AbsRollupUserLogic is
             return;
         }
         // Start a challenge between staker1 and staker2. Staker1 will defend the correctness of node1, and staker2 will challenge it.
-        uint64 challengeIndex = 123;
-        createChallengeHelper(
+        uint64 challengeIndex = createChallengeHelper(
             stakers,
             uint(node1.stateHash),
             commonEndTime - proposedTimes[0],

@@ -20,6 +20,8 @@ use std::{
 use structopt::StructOpt;
 use prover::circuit::FullWitness;
 use ark_bn254::Fr;
+use prover::circuit::hash::{/*FrHash,*/ Poseidon};
+
 
 #[derive(StructOpt)]
 #[structopt(name = "arbitrator-prover")]
@@ -132,8 +134,6 @@ struct SimpleProfile {
 
 const INBOX_HEADER_LEN: usize = 40; // also in test-case's host-io.rs & contracts's OneStepProverHostIo.sol
 const DELAYED_HEADER_LEN: usize = 112; // also in test-case's host-io.rs & contracts's OneStepProverHostIo.sol
-
-use prover::circuit::hash::{FrHash, Poseidon};
 
 /*
 fn main() -> Result<()> {

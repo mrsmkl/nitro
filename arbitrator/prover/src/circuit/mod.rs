@@ -392,16 +392,7 @@ pub fn change_module(cs: ConstraintSystemRef<Fr>, params: &Params, mach: &Machin
     mach
 }
 
-pub fn execute_const(params: &Params, mach: &MachineWithStack, ty: u32) -> MachineWithStack {
-    let mut mach = mach.clone();
-    let v = Value {
-        value: mach.inst.argumentData.clone(),
-        ty: FpVar::constant(Fr::from(ty)),
-    };
-    mach.valueStack.push(hash_value(params, &v));
-    mach.functionPc = mach.functionPc.clone() + FpVar::constant(Fr::from(1));
-    mach
-}
+/// Circuits for different instructions
 
 trait Inst {
     fn execute_internal(&self, params: &Params, mach: &MachineWithStack) -> (MachineWithStack, MachineWithStack);
@@ -423,14 +414,6 @@ trait InstCS {
     }
 }
 
-#[derive(Debug,Clone)]
-pub struct InstConstHint {
-}
-
-struct InstConst {
-    ty: u32,
-}
-
 fn default_instruction() -> InstructionHint {
     InstructionHint {
         opcode: 0,
@@ -443,6 +426,34 @@ fn convert_instruction(hint: InstructionHint, cs: ConstraintSystemRef<Fr>) -> In
         opcode: FpVar::Var(AllocatedFp::<Fr>::new_witness(cs.clone(), || Ok(Fr::from(hint.opcode))).unwrap()),
         argumentData: FpVar::Var(AllocatedFp::<Fr>::new_witness(cs.clone(), || Ok(Fr::from(hint.argumentData))).unwrap()),
     }
+}
+
+pub fn enforce_i32(v: FpVar<Fr>) {
+    truncate_i32(&v).enforce_equal(&v).unwrap();
+}
+
+pub fn truncate_i32(v: &FpVar<Fr>) -> FpVar<Fr> {
+    let bits = v.to_bits_le().unwrap();
+    Boolean::le_bits_to_fp_var(&bits[0..32]).unwrap()
+}
+
+#[derive(Debug,Clone)]
+pub struct InstConstHint {
+}
+
+struct InstConst {
+    ty: u32,
+}
+
+pub fn execute_const(params: &Params, mach: &MachineWithStack, ty: u32) -> MachineWithStack {
+    let mut mach = mach.clone();
+    let v = Value {
+        value: mach.inst.argumentData.clone(),
+        ty: FpVar::constant(Fr::from(ty)),
+    };
+    mach.valueStack.push(hash_value(params, &v));
+    mach.functionPc = mach.functionPc.clone() + FpVar::constant(Fr::from(1));
+    mach
 }
 
 impl InstConstHint {
@@ -491,12 +502,6 @@ fn empty_machine() -> MachineWithStack {
     }    
 }
 */
-
-pub fn enforce_i32(v: FpVar<Fr>) {
-    let bits = v.to_bits_le().unwrap();
-    let res = Boolean::le_bits_to_fp_var(&bits[0..32]).unwrap();
-    res.enforce_equal(&v).unwrap();
-}
 
 pub fn execute_drop(_params: &Params, mach: &MachineWithStack) -> MachineWithStack {
     let mut mach = mach.clone();
@@ -550,6 +555,8 @@ fn drop_default_machine() -> MachineWithStack {
     mach
 }
 */
+
+///// select
 
 pub fn execute_select(_params: &Params, mach: &MachineWithStack) -> MachineWithStack {
     let mut mach = mach.clone();
@@ -606,6 +613,68 @@ impl InstSelectHint {
         }
     }
 }
+
+///// binary
+
+#[derive(Debug,Clone)]
+pub struct InstBinaryHint {
+    val1: Fr,
+    val2: Fr,
+}
+
+struct InstBinary {
+    val1: FpVar<Fr>,
+    val2: FpVar<Fr>,
+    code: u32,
+}
+
+pub fn execute_binary(op: u32, _params: &Params, mach: &MachineWithStack) -> MachineWithStack {
+    let mut mach = mach.clone();
+    let b = mach.valueStack.pop();
+    let a = mach.valueStack.pop();
+
+    let res = match op {
+        // add 32
+        0x62 => {
+            truncate_i32(&(a.clone() + b.clone()))
+        }
+        _ => panic!("Unknown op code")
+    };
+
+    mach.valueStack.push(res);
+    mach.functionPc = mach.functionPc.clone() + FpVar::constant(Fr::from(1));
+    mach
+}
+
+impl Inst for InstBinary {
+    fn code(&self) -> u32 { self.code }
+    fn execute_internal(&self, params: &Params, mach: &MachineWithStack) -> (MachineWithStack, MachineWithStack) {
+        let mut mach = mach.clone();
+        mach.valueStack.push(self.val1.clone());
+        mach.valueStack.push(self.val2.clone());
+        let before = mach.clone();
+        let after = execute_binary(self.code, params, &mach);
+        (before, after)
+    }
+}
+
+impl InstBinaryHint {
+    pub fn default() -> Self {
+        InstBinaryHint {
+            val1: Fr::from(0),
+            val2: Fr::from(0),
+        }
+    }
+    fn convert(&self, cs: &ConstraintSystemRef<Fr>, code: u32) -> InstBinary {
+        InstBinary {
+            val1: witness(&cs, &self.val1),
+            val2: witness(&cs, &self.val2),
+            code
+        }
+    }
+}
+
+/// block
 
 pub fn execute_block(_params: &Params, mach: &MachineWithStack) -> MachineWithStack {
     let mut mach = mach.clone();
@@ -1155,7 +1224,7 @@ impl InstCS for InstGlobalSet {
         let mut mach = mach.clone();
         mach.valueStack.push(self.old_val.clone());
         let before = mach.clone();
-        let after = execute_global_get(cs.clone(), params, &mach, &self.proof, self.val.clone());
+        let after = execute_global_set(cs.clone(), params, &mach, &self.proof, &self.val);
         let after = change_module(cs.clone(), params, &after, &before.mole, &self.mod_proof);
         (before, after)
     }
