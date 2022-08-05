@@ -437,6 +437,11 @@ pub fn truncate_i32(v: &FpVar<Fr>) -> FpVar<Fr> {
     Boolean::le_bits_to_fp_var(&bits[0..32]).unwrap()
 }
 
+pub fn is_neg_i32(v: &FpVar<Fr>) -> Boolean<Fr> {
+    let bits = v.to_bits_le().unwrap();
+    bits[31].clone()
+}
+
 pub fn and_i32(a: &FpVar<Fr>, b: &FpVar<Fr>) -> FpVar<Fr> {
     let a_bits = a.to_bits_le().unwrap();
     let b_bits = b.to_bits_le().unwrap();
@@ -1394,6 +1399,7 @@ pub enum InstProof {
     GlobalGet(InstGlobalGetHint),
     GlobalSet(InstGlobalSetHint),
     InitFrame(InstInitFrameHint),
+    AddI32(InstBinaryHint),
 }
 
 struct InstWitness {
@@ -1414,6 +1420,7 @@ struct InstWitness {
     global_get: InstGlobalGet,
     global_set: InstGlobalSet,
     init_frame: InstInitFrame,
+    add_i32: InstBinary,
 }
 
 fn proof_to_witness(proof: InstProof, cs: ConstraintSystemRef<Fr>) -> InstWitness {
@@ -1434,6 +1441,7 @@ fn proof_to_witness(proof: InstProof, cs: ConstraintSystemRef<Fr>) -> InstWitnes
     let mut hint_global_get = InstGlobalGetHint::default();
     let mut hint_global_set = InstGlobalSetHint::default();
     let mut hint_init_frame = InstInitFrameHint::default();
+    let mut hint_add_i32 = InstBinaryHint::default();
     use crate::circuit::InstProof::*;
     match proof {
         ConstI32(hint) => {
@@ -1487,6 +1495,9 @@ fn proof_to_witness(proof: InstProof, cs: ConstraintSystemRef<Fr>) -> InstWitnes
         InitFrame(hint) => {
             hint_init_frame = hint;
         }
+        AddI32(hint) => {
+            hint_add_i32 = hint;
+        }
     };
     InstWitness {
         const_i32: hint_const_i32.convert(&cs, 0),
@@ -1506,6 +1517,7 @@ fn proof_to_witness(proof: InstProof, cs: ConstraintSystemRef<Fr>) -> InstWitnes
         global_get: hint_global_get.convert(&cs),
         global_set: hint_global_set.convert(&cs),
         init_frame: hint_init_frame.convert(&cs),
+        add_i32: hint_add_i32.convert(&cs, 0x6a),
     }
 }
 
@@ -1573,6 +1585,7 @@ fn make_proof(
     let global_get = witness.global_get.execute(cs.clone(), params, &base_machine);
     let global_set = witness.global_set.execute(cs.clone(), params, &base_machine);
     let init_frame = witness.init_frame.execute(params, &base_machine);
+    let add_i32 = witness.init_frame.execute(params, &base_machine);
 
     select_machine(params, vec![
         const_i32,
@@ -1592,6 +1605,7 @@ fn make_proof(
         global_get,
         global_set,
         init_frame,
+        add_i32,
     ])
 }
 
