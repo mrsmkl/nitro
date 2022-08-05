@@ -475,6 +475,93 @@ pub fn xor_i32(a: &FpVar<Fr>, b: &FpVar<Fr>) -> FpVar<Fr> {
     Boolean::le_bits_to_fp_var(&bits[0..32]).unwrap()
 }
 
+use ark_r1cs_std::select::CondSelectGadget;
+
+pub fn shl_i32(a: &FpVar<Fr>, b: &FpVar<Fr>) -> FpVar<Fr> {
+    let a_bits = a.to_bits_le().unwrap();
+    let b_bits = b.to_bits_le().unwrap();
+    let mut choices = vec![];
+    for i in 0..32 {
+        let mut bits = vec![];
+        for _j in 0..i {
+            bits.push(Boolean::constant(false));
+        }
+        for j in i..32 {
+            bits.push(a_bits[j-i].clone());
+        }
+        let res = Boolean::le_bits_to_fp_var(&bits[0..32]).unwrap();
+        choices.push(res);
+    }
+    FpVar::conditionally_select_power_of_two_vector(&b_bits[0..5], &choices).unwrap()
+}
+
+pub fn shr_u_i32(a: &FpVar<Fr>, b: &FpVar<Fr>) -> FpVar<Fr> {
+    let a_bits = a.to_bits_le().unwrap();
+    let b_bits = b.to_bits_le().unwrap();
+    let mut choices = vec![];
+    for i in 0..32 {
+        let mut bits = vec![];
+        for j in 0..32-i {
+            bits.push(a_bits[j+i].clone());
+        }
+        for _j in 0..i {
+            bits.push(Boolean::constant(false));
+        }
+        let res = Boolean::le_bits_to_fp_var(&bits[0..32]).unwrap();
+        choices.push(res);
+    }
+    FpVar::conditionally_select_power_of_two_vector(&b_bits[0..5], &choices).unwrap()
+}
+
+pub fn shr_s_i32(a: &FpVar<Fr>, b: &FpVar<Fr>) -> FpVar<Fr> {
+    let a_bits = a.to_bits_le().unwrap();
+    let b_bits = b.to_bits_le().unwrap();
+    let sign = is_neg_i32(&a);
+    let mut choices = vec![];
+    for i in 0..32 {
+        let mut bits = vec![];
+        for j in 0..32-i {
+            bits.push(a_bits[j+i].clone());
+        }
+        for _j in 0..i {
+            bits.push(sign.clone());
+        }
+        let res = Boolean::le_bits_to_fp_var(&bits[0..32]).unwrap();
+        choices.push(res);
+    }
+    FpVar::conditionally_select_power_of_two_vector(&b_bits[0..5], &choices).unwrap()
+}
+
+pub fn rotl_i32(a: &FpVar<Fr>, b: &FpVar<Fr>) -> FpVar<Fr> {
+    let a_bits = a.to_bits_le().unwrap();
+    let b_bits = b.to_bits_le().unwrap();
+    let mut choices = vec![];
+    for i in 0..32 {
+        let mut bits = vec![];
+        for j in 0..32 {
+            bits.push(a_bits[(31+j-i) % 32].clone());
+        }
+        let res = Boolean::le_bits_to_fp_var(&bits[0..32]).unwrap();
+        choices.push(res);
+    }
+    FpVar::conditionally_select_power_of_two_vector(&b_bits[0..5], &choices).unwrap()
+}
+
+pub fn rotr_i32(a: &FpVar<Fr>, b: &FpVar<Fr>) -> FpVar<Fr> {
+    let a_bits = a.to_bits_le().unwrap();
+    let b_bits = b.to_bits_le().unwrap();
+    let mut choices = vec![];
+    for i in 0..32 {
+        let mut bits = vec![];
+        for j in i..32 {
+            bits.push(a_bits[(32+j+i) % 32].clone());
+        }
+        let res = Boolean::le_bits_to_fp_var(&bits[0..32]).unwrap();
+        choices.push(res);
+    }
+    FpVar::conditionally_select_power_of_two_vector(&b_bits[0..5], &choices).unwrap()
+}
+
 #[derive(Debug,Clone)]
 pub struct InstConstHint {
 }
@@ -698,6 +785,16 @@ pub fn execute_binary(op: u32, _params: &Params, mach: &MachineWithStack) -> Mac
         0x72 => or_i32(&a, &b),
         // xor 32
         0x73 => xor_i32(&a, &b),
+        // shl 32
+        0x74 => shl_i32(&a, &b),
+        // shr s 32
+        0x75 => shr_s_i32(&a, &b),
+        // shr u 32
+        0x76 => shr_u_i32(&a, &b),
+        // rotl 32
+        0x77 => rotl_i32(&a, &b),
+        // rotr 32
+        0x78 => rotr_i32(&a, &b),
         _ => panic!("Unknown op code")
     };
 
