@@ -562,6 +562,10 @@ pub fn rotr_i32(a: &FpVar<Fr>, b: &FpVar<Fr>) -> FpVar<Fr> {
     FpVar::conditionally_select_power_of_two_vector(&b_bits[0..5], &choices).unwrap()
 }
 
+
+
+////////////////////////////////////////////
+
 #[derive(Debug,Clone)]
 pub struct InstConstHint {
 }
@@ -753,6 +757,8 @@ struct InstBinary {
     code: u32,
 }
 
+use std::cmp::Ordering;
+
 pub fn execute_binary(op: u32, _params: &Params, mach: &MachineWithStack) -> MachineWithStack {
     let mut mach = mach.clone();
     let b = mach.valueStack.pop();
@@ -795,6 +801,26 @@ pub fn execute_binary(op: u32, _params: &Params, mach: &MachineWithStack) -> Mac
         0x77 => rotl_i32(&a, &b),
         // rotr 32
         0x78 => rotr_i32(&a, &b),
+        // eq 32
+        0x46 => From::from(b.is_eq(&a).unwrap()),
+        // neq 32
+        0x47 => From::from(b.is_eq(&a).unwrap()),
+        // lt s 32
+        0x48 => From::from(b.is_cmp(&a, Ordering::Less, false).unwrap()),
+        // lt u 32
+        0x49 => From::from(b.is_cmp(&a, Ordering::Less, false).unwrap()),
+        // gt s 32
+        0x4a => From::from(b.is_cmp(&a, Ordering::Greater, false).unwrap()),
+        // gt u 32
+        0x4b => From::from(b.is_cmp(&a, Ordering::Greater, false).unwrap()),
+        // le s 32
+        0x4c => From::from(b.is_cmp(&a, Ordering::Less, true).unwrap()),
+        // le u 32
+        0x4d => From::from(b.is_cmp(&a, Ordering::Less, true).unwrap()),
+        // ge s 32
+        0x4e => From::from(b.is_cmp(&a, Ordering::Greater, true).unwrap()),
+        // ge u 32
+        0x4f => From::from(b.is_cmp(&a, Ordering::Greater, true).unwrap()),
         _ => panic!("Unknown op code")
     };
 
