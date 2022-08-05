@@ -437,6 +437,39 @@ pub fn truncate_i32(v: &FpVar<Fr>) -> FpVar<Fr> {
     Boolean::le_bits_to_fp_var(&bits[0..32]).unwrap()
 }
 
+pub fn and_i32(a: &FpVar<Fr>, b: &FpVar<Fr>) -> FpVar<Fr> {
+    let a_bits = a.to_bits_le().unwrap();
+    let b_bits = b.to_bits_le().unwrap();
+    let mut bits = vec![];
+    for i in 0..32 {
+        let res = a_bits[i].and(&b_bits[i]).unwrap();
+        bits.push(res)
+    }
+    Boolean::le_bits_to_fp_var(&bits[0..32]).unwrap()
+}
+
+pub fn or_i32(a: &FpVar<Fr>, b: &FpVar<Fr>) -> FpVar<Fr> {
+    let a_bits = a.to_bits_le().unwrap();
+    let b_bits = b.to_bits_le().unwrap();
+    let mut bits = vec![];
+    for i in 0..32 {
+        let res = a_bits[i].or(&b_bits[i]).unwrap();
+        bits.push(res)
+    }
+    Boolean::le_bits_to_fp_var(&bits[0..32]).unwrap()
+}
+
+pub fn xor_i32(a: &FpVar<Fr>, b: &FpVar<Fr>) -> FpVar<Fr> {
+    let a_bits = a.to_bits_le().unwrap();
+    let b_bits = b.to_bits_le().unwrap();
+    let mut bits = vec![];
+    for i in 0..32 {
+        let res = a_bits[i].xor(&b_bits[i]).unwrap();
+        bits.push(res)
+    }
+    Boolean::le_bits_to_fp_var(&bits[0..32]).unwrap()
+}
+
 #[derive(Debug,Clone)]
 pub struct InstConstHint {
 }
@@ -635,9 +668,31 @@ pub fn execute_binary(op: u32, _params: &Params, mach: &MachineWithStack) -> Mac
 
     let res = match op {
         // add 32
-        0x62 => {
-            truncate_i32(&(a.clone() + b.clone()))
+        0x6a => truncate_i32(&(a.clone() + b.clone())),
+        // sub 32
+        0x6b => truncate_i32(&(a.clone() - b.clone())),
+        // mul 32
+        0x6c => truncate_i32(&(a.clone() * b.clone())),
+        // div_s 32
+        0x6d => truncate_i32(&(a.clone().mul_by_inverse(&b).unwrap())),
+        // div_u 32
+        0x6e => truncate_i32(&(a.clone().mul_by_inverse(&b).unwrap())),
+        // rem_s 32
+        0x6f => {
+            let m = a.clone().mul_by_inverse(&b).unwrap() * b;
+            truncate_i32(&(a - m))
         }
+        // rem_u 32
+        0x70 => {
+            let m = a.clone().mul_by_inverse(&b).unwrap() * b;
+            truncate_i32(&(a - m))
+        }
+        // and 32
+        0x71 => and_i32(&a, &b),
+        // or 32
+        0x72 => or_i32(&a, &b),
+        // xor 32
+        0x73 => xor_i32(&a, &b),
         _ => panic!("Unknown op code")
     };
 
