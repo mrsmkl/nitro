@@ -635,6 +635,47 @@ pub fn rotr_i32(a: &FpVar<Fr>, b: &FpVar<Fr>) -> FpVar<Fr> {
 }
 
 
+//// Masks for memory
+
+pub fn apply_mask(a: &[FpVar<Fr>], mask: &[FpVar<Fr>]) -> Vec<FpVar<Fr>> {
+    let mut res = vec![];
+    for i in 0..mask.len() {
+        let replace = FpVar::constant(Fr::from(2)).is_eq(&mask[i]).unwrap().not();
+        let choice = replace.select(&a[i], &mask[i]).unwrap();
+        res.push(choice)
+    }
+    res
+}
+
+// check that mask is correct
+pub fn check_mask(mask: &[FpVar<Fr>]) -> (FpVar<Fr>, FpVar<Fr>, FpVar<Fr>) {
+    // bits before start
+    let mut before = FpVar::constant(Fr::from(0));
+    // size of replaced area
+    let mut size = FpVar::constant(Fr::from(0));
+    // actual number that is in the mask
+    let mut num = FpVar::constant(Fr::from(0));
+    // has the area been found?
+    let mut found = Boolean::<Fr>::constant(false);
+    let mut found2 = Boolean::<Fr>::constant(false);
+    let zero = FpVar::constant(Fr::from(0));
+    let one = FpVar::constant(Fr::from(1));
+    let two = FpVar::constant(Fr::from(2));
+    for i in 0..mask.len() {
+        let eq0 = zero.clone().is_eq(&mask[i]).unwrap();
+        let eq1 = one.clone().is_eq(&mask[i]).unwrap();
+        let eq2 = two.clone().is_eq(&mask[i]).unwrap();
+        eq0.clone().or(&eq1).unwrap().or(&eq2).unwrap().enforce_equal(&Boolean::constant(true)).unwrap();
+        found = found.or(&eq0.not()).unwrap();
+        found2 = found2.or(&eq2.and(&found).unwrap()).unwrap();
+        found2.clone().not().or(&eq2).unwrap().enforce_equal(&Boolean::constant(true)).unwrap();
+
+        before = found.clone().not().select(&(before.clone() + one.clone()), &before).unwrap();
+        size = found2.clone().not().and(&found).unwrap().select(&(size.clone() + one.clone()), &size).unwrap();
+        num = eq2.select(&num, &(num.clone()*two.clone() + mask[i].clone())).unwrap();
+    }
+    (before, size, num)
+}
 
 ////////////////////////////////////////////
 
