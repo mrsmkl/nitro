@@ -329,6 +329,13 @@ pub struct MachineWithStack {
     valid: Boolean<Fr>,
     inst: Instruction, // Must be the correct instruction
     mole: Module,
+
+    // Instruction might need two memory cells. it's assumed that the updates are done to the first one first, and only then the second one
+    mem1: FpVar<Fr>,
+    mem1_after: FpVar<Fr>, // value of memory after updates
+    mem2: FpVar<Fr>,
+    mem2_after: FpVar<Fr>,
+    mem_index: FpVar<Fr>,
 }
 
 pub fn hash_machine_with_stack(params: &Params, mach: &MachineWithStack) -> FpVar<Fr> {
@@ -390,6 +397,29 @@ pub fn change_module(cs: ConstraintSystemRef<Fr>, params: &Params, mach: &Machin
     mach.valid = mach.valid.and(&old_mole_root.is_eq(&mach.modulesRoot).unwrap()).unwrap();
     mach.modulesRoot = mole_root;
     mach
+}
+
+pub fn check_memory(cs: ConstraintSystemRef<Fr>, mach: &MachineWithStack, params: &Params, proof1: &Proof, proof2: &Proof) {
+    let elem1_hash = poseidon_gadget(params, vec![mach.mem1.clone()]);
+    let elem1_after_hash = poseidon_gadget(params, vec![mach.mem1_after.clone()]);
+    let (mem_root1, mem_idx1) = make_path(cs.clone(), 32, params, elem1_hash, proof1);
+    let (mem_root1_after, mem_idx1_) = make_path(cs.clone(), 32, params, elem1_after_hash, proof1);
+
+    let elem2_hash = poseidon_gadget(params, vec![mach.mem2.clone()]);
+    let elem2_after_hash = poseidon_gadget(params, vec![mach.mem2_after.clone()]);
+    let (mem_root2, mem_idx2) = make_path(cs.clone(), 32, params, elem2_hash, proof2);
+    let (mem_root2_after, mem_idx2_) = make_path(cs.clone(), 32, params, elem2_after_hash, proof2);
+
+    mem_idx1.enforce_equal(&mach.mem_index).unwrap();
+    mem_idx1_.enforce_equal(&mach.mem_index).unwrap();
+    let mem_index_plus = mach.mem_index.clone() + FpVar::constant(Fr::from(1));
+    mem_idx2.enforce_equal(&mem_index_plus).unwrap();
+    mem_idx2_.enforce_equal(&mem_index_plus).unwrap();
+
+    mem_root1.enforce_equal(&mach.mole.moduleMemory).unwrap();
+    mem_root1_after.enforce_equal(&mem_root2).unwrap();
+
+    mach.mole.moduleMemory = mem_root2_after;
 }
 
 /// Circuits for different instructions
@@ -1691,6 +1721,9 @@ fn make_proof(
 
     let base_machine = intro_stack(&base_machine, &inst, &mole);
     let witness = proof_to_witness(proof, cs.clone());
+
+    // handle memory proofs here ...
+
     let const_i32 = witness.const_i32.execute(params, &base_machine);
     let const_i64 = witness.const_i64.execute(params, &base_machine);
     let const_f32 = witness.const_f32.execute(params, &base_machine);
