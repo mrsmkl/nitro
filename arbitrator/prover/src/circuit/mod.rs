@@ -323,6 +323,41 @@ pub struct MemInfo {
 }
 
 #[derive(Debug, Clone)]
+pub struct MemoryHint {
+    mem1: Fr,
+    mem1_after: Fr,
+    mem2: Fr,
+    mem2_after: Fr,
+    mem_index: Fr,
+    proof1: Proof,
+    proof2: Proof,
+}
+
+impl MemoryHint {
+    pub fn default() -> Self {
+        MemoryHint {
+            mem1: Fr::from(0),
+            mem1_after: Fr::from(0),
+            mem2: Fr::from(0),
+            mem2_after: Fr::from(0),
+            mem_index: Fr::from(0),
+            proof1: Proof::default(),
+            proof2: Proof::default(),
+        }
+    }
+    fn convert(&self, cs: ConstraintSystemRef<Fr>) -> MemInfo {
+        MemInfo {
+            mem1: witness(&cs, &self.mem1),
+            mem1_after: witness(&cs, &self.mem1_after),
+            mem2: witness(&cs, &self.mem2),
+            mem2_after: witness(&cs, &self.mem2_after),
+            mem_index: witness(&cs, &self.mem_index),
+        }
+    }
+}
+
+
+#[derive(Debug, Clone)]
 pub struct MachineWithStack {
     valueStack : Stack,
     internalStack : Stack,
@@ -405,20 +440,21 @@ pub fn change_module(cs: ConstraintSystemRef<Fr>, params: &Params, mach: &Machin
     mach
 }
 
-pub fn check_memory(cs: ConstraintSystemRef<Fr>, mach: &MachineWithStack, params: &Params, proof1: &Proof, proof2: &Proof) {
-    let elem1_hash = poseidon_gadget(params, vec![mach.mem1.clone()]);
-    let elem1_after_hash = poseidon_gadget(params, vec![mach.mem1_after.clone()]);
+pub fn check_memory(cs: ConstraintSystemRef<Fr>, mach: &mut MachineWithStack, params: &Params, proof1: &Proof, proof2: &Proof) {
+    let mem = mach.mem.clone();
+    let elem1_hash = poseidon_gadget(params, vec![mem.mem1.clone()]);
+    let elem1_after_hash = poseidon_gadget(params, vec![mem.mem1_after.clone()]);
     let (mem_root1, mem_idx1) = make_path(cs.clone(), 32, params, elem1_hash, proof1);
     let (mem_root1_after, mem_idx1_) = make_path(cs.clone(), 32, params, elem1_after_hash, proof1);
 
-    let elem2_hash = poseidon_gadget(params, vec![mach.mem2.clone()]);
-    let elem2_after_hash = poseidon_gadget(params, vec![mach.mem2_after.clone()]);
+    let elem2_hash = poseidon_gadget(params, vec![mem.mem2.clone()]);
+    let elem2_after_hash = poseidon_gadget(params, vec![mem.mem2_after.clone()]);
     let (mem_root2, mem_idx2) = make_path(cs.clone(), 32, params, elem2_hash, proof2);
     let (mem_root2_after, mem_idx2_) = make_path(cs.clone(), 32, params, elem2_after_hash, proof2);
 
-    mem_idx1.enforce_equal(&mach.mem_index).unwrap();
-    mem_idx1_.enforce_equal(&mach.mem_index).unwrap();
-    let mem_index_plus = mach.mem_index.clone() + FpVar::constant(Fr::from(1));
+    mem_idx1.enforce_equal(&mem.mem_index).unwrap();
+    mem_idx1_.enforce_equal(&mem.mem_index).unwrap();
+    let mem_index_plus = mem.mem_index.clone() + FpVar::constant(Fr::from(1));
     mem_idx2.enforce_equal(&mem_index_plus).unwrap();
     mem_idx2_.enforce_equal(&mem_index_plus).unwrap();
 
@@ -1703,6 +1739,7 @@ fn make_proof(
     proof: InstProof,
     inst: InstructionHint,
     mole: &ModuleHint,
+    mem_hint: &MemoryHint,
     mod_proof: &Proof,
     inst_proof: &Proof,
     func_proof: &Proof
@@ -1710,6 +1747,7 @@ fn make_proof(
     let base_machine = machine_hint.convert(cs.clone());
     let inst = convert_instruction(inst, cs.clone());
     let mole = mole.convert(cs.clone());
+    let mem = mem_hint.convert(cs.clone());
 
     let inst_hashed = hash_instruction(params, &inst);
 
@@ -1725,7 +1763,9 @@ fn make_proof(
         func_proof,
     );
 
-    let base_machine = intro_stack(&base_machine, &inst, &mole);
+    let mut base_machine = intro_stack(&base_machine, &inst, &mole, &mem);
+    check_memory(cs.clone(), &mut base_machine, params, &mem_hint.proof1, &mem_hint.proof2);
+
     let witness = proof_to_witness(proof, cs.clone());
 
     // handle memory proofs here ...
@@ -1780,6 +1820,7 @@ pub struct Witness {
     pub mod_proof: Proof,
     pub inst_proof: Proof,
     pub func_proof: Proof,
+    pub mem: MemoryHint,
 }
 
 use ark_relations::r1cs::{ConstraintSynthesizer,SynthesisError};
@@ -1817,6 +1858,7 @@ impl ConstraintSynthesizer<Fr> for Witness {
             self.proof,
             self.inst,
             &self.mole,
+            &self.mem,
             &self.mod_proof,
             &self.inst_proof,
             &self.func_proof,
@@ -1885,6 +1927,7 @@ impl ConstraintSynthesizer<Fr> for FullWitness {
             self.witness.proof,
             self.witness.inst,
             &self.witness.mole,
+            &self.witness.mem,
             &self.witness.mod_proof,
             &self.witness.inst_proof,
             &self.witness.func_proof,
@@ -1981,6 +2024,7 @@ pub fn test(w: Witness) {
         w.proof,
         w.inst,
         &w.mole,
+        &w.mem,
         &w.mod_proof,
         &w.inst_proof,
         &w.func_proof,

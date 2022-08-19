@@ -2,6 +2,7 @@ use crate::circuit::{
     MachineHint,ModuleHint,InstProof,InstDropHint,InstConstHint,InstLocalGetHint,
     StackFrameHint,
     InstLocalSetHint,
+    MemoryHint,
 };
 use crate::machine::{PoseidonMachine,GenModule,StackFrame};
 use ark_bn254::Fr;
@@ -72,6 +73,7 @@ impl PoseidonMachine {
                     proof: InstProof::Drop(proof),
                     inst: inst.hint(),
                     mole: mole.hint(),
+                    mem: MemoryHint::default(),
                     mod_proof,
                     func_proof,
                     inst_proof,
@@ -90,6 +92,7 @@ impl PoseidonMachine {
                     proof: InstProof::ConstI32(InstConstHint {}),
                     inst: inst.hint(),
                     mole: mole.hint(),
+                    mem: MemoryHint::default(),
                     mod_proof,
                     func_proof,
                     inst_proof,
@@ -124,6 +127,7 @@ impl PoseidonMachine {
                     proof: InstProof::LocalGet(proof),
                     inst: inst.hint(),
                     mole: mole.hint(),
+                    mem: MemoryHint::default(),
                     mod_proof,
                     func_proof,
                     inst_proof,
@@ -159,6 +163,7 @@ impl PoseidonMachine {
                     proof: InstProof::LocalSet(proof),
                     inst: inst.hint(),
                     mole: mole.hint(),
+                    mem: MemoryHint::default(),
                     mod_proof,
                     func_proof,
                     inst_proof,
