@@ -314,6 +314,15 @@ const I32_TYPE : u32 = 0u32;
 const INTERNAL_TYPE_REF : u32 = 6u32;
 
 #[derive(Debug, Clone)]
+pub struct MemInfo {
+    mem1: FpVar<Fr>,
+    mem1_after: FpVar<Fr>, // value of memory after updates
+    mem2: FpVar<Fr>,
+    mem2_after: FpVar<Fr>,
+    mem_index: FpVar<Fr>,
+}
+
+#[derive(Debug, Clone)]
 pub struct MachineWithStack {
     valueStack : Stack,
     internalStack : Stack,
@@ -331,11 +340,7 @@ pub struct MachineWithStack {
     mole: Module,
 
     // Instruction might need two memory cells. it's assumed that the updates are done to the first one first, and only then the second one
-    mem1: FpVar<Fr>,
-    mem1_after: FpVar<Fr>, // value of memory after updates
-    mem2: FpVar<Fr>,
-    mem2_after: FpVar<Fr>,
-    mem_index: FpVar<Fr>,
+    mem: MemInfo
 }
 
 pub fn hash_machine_with_stack(params: &Params, mach: &MachineWithStack) -> FpVar<Fr> {
@@ -358,7 +363,7 @@ pub fn elim_stack(params : &Params, mach: &MachineWithStack) -> Machine {
     }
 }
 
-fn intro_stack(mach: &Machine, inst: &Instruction, mole: &Module) -> MachineWithStack {
+fn intro_stack(mach: &Machine, inst: &Instruction, mole: &Module, mem: &MemInfo) -> MachineWithStack {
     MachineWithStack {
         valueStack : Stack::based(mach.valueStack.clone()),
         internalStack : Stack::based(mach.internalStack.clone()),
@@ -374,6 +379,7 @@ fn intro_stack(mach: &Machine, inst: &Instruction, mole: &Module) -> MachineWith
         valid: Boolean::constant(true),
         inst: inst.clone(),
         mole: mole.clone(),
+        mem: mem.clone(),
     }
 }
 
