@@ -687,6 +687,18 @@ pub fn check_mask(mask: &[FpVar<Fr>]) -> (FpVar<Fr>, FpVar<Fr>, FpVar<Fr>) {
     (before, size, num)
 }
 
+pub fn inspect_value(
+    params: &Params,
+    hash: &FpVar<Fr>,
+    hint: &Value,
+    ty: u32,
+) -> FpVar<Fr> {
+    hint.ty.enforce_equal(&FpVar::constant(Fr::from(ty))).unwrap();
+    hash.enforce_equal(&hash_value(params, &hint)).unwrap();
+    hint.value.clone()
+}
+
+
 //////////////// Implementation of instructions
 
 // memory
@@ -700,10 +712,11 @@ pub fn execute_load(
     opcode: u32,
     mask: &Vec<Fr>,
     before_bytes: &Fr,
+    stack_hint: &Value
 ) -> MachineWithStack {
     let mut mach = mach.clone();
     let popped = mach.valueStack.pop(); // TODO: looks like these should be inspected as values
-
+    let popped = inspect_value(params, &popped, &stack_hint, 0);
     let idx = popped + mach.inst.argumentData.clone();
     let mask : Vec<FpVar<Fr>> = mask.iter().map(|a| witness(cs, a)).collect();
     let bits1 = mach.mem.mem1.to_bits_le().unwrap();
@@ -787,6 +800,53 @@ pub fn execute_load(
     mach.functionPc = mach.functionPc.clone() + FpVar::constant(Fr::from(1));
     mach
 }
+
+#[derive(Debug,Clone)]
+pub struct InstLoadHint {
+    val: ValueHint,
+    mask: Vec<Fr>,
+    before_bytes: Fr,
+}
+
+struct InstLoad {
+    opcode: u32,
+    val: Value,
+    mask: Vec<Fr>,
+    before_bytes: Fr,
+}
+
+impl InstLoadHint {
+    fn default() -> Self {
+        InstLoadHint { 
+            val: ValueHint::default(),
+            before_bytes: Fr::from(0),
+            mask: vec![],
+        }
+    }
+    fn convert(&self, cs: &ConstraintSystemRef<Fr>, opcode: u32) -> InstLoad {
+        InstLoad {
+            opcode,
+            val: self.val.convert(cs),
+            before_bytes: self.before_bytes.clone(),
+            mask: self.mask.clone(),
+        }
+    }
+}
+
+impl InstCS for InstLoad {
+    fn code(&self) -> u32 {
+        self.opcode
+    }
+    fn execute_internal(&self, cs: ConstraintSystemRef<Fr>, params: &Params, mach: &MachineWithStack) -> (MachineWithStack, MachineWithStack) {
+        let mut mach = mach.clone();
+        // push value to stack
+        mach.valueStack.push(hash_value(params, &self.val));
+        let before = mach.clone();
+        let after = execute_load(&cs, params, &mach, self.opcode, &self.mask, &self.before_bytes, &self.val);
+        (before, after)
+    }
+}
+
 
 // constant
 
