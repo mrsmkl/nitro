@@ -509,6 +509,11 @@ pub fn truncate_i32(v: &FpVar<Fr>) -> FpVar<Fr> {
     Boolean::le_bits_to_fp_var(&bits[0..32]).unwrap()
 }
 
+pub fn truncate(v: &FpVar<Fr>, num: usize) -> FpVar<Fr> {
+    let bits = v.to_bits_le().unwrap();
+    Boolean::le_bits_to_fp_var(&bits[0..num]).unwrap()
+}
+
 pub fn is_neg_i32(v: &FpVar<Fr>) -> Boolean<Fr> {
     let bits = v.to_bits_le().unwrap();
     bits[31].clone()
@@ -699,11 +704,131 @@ pub fn inspect_value(
 }
 
 
+const LEAF_SIZE : usize = 30;
+
 //////////////// Implementation of instructions
 
-// memory
+// memory store
 
-const LEAF_SIZE : usize = 30;
+pub fn execute_store(
+    cs: &ConstraintSystemRef<Fr>,
+    params: &Params,
+    mach: &MachineWithStack,
+    opcode: u32,
+    mask: &Vec<Fr>,
+    before_bytes: &Fr,
+    stack_hint1: &Value,
+    stack_hint2: &Value,
+) -> MachineWithStack {
+    let mut mach = mach.clone();
+    let popped_write = mach.valueStack.pop();
+    let popped = mach.valueStack.pop();
+    let popped = inspect_value(params, &popped, &stack_hint2, 0);
+    let idx = popped + mach.inst.argumentData.clone();
+    let mask : Vec<FpVar<Fr>> = mask.iter().map(|a| witness(cs, a)).collect();
+    let bits1 = mach.mem.mem1.to_bits_le().unwrap();
+    let bits2 = mach.mem.mem2.to_bits_le().unwrap();
+    let mut bits : Vec<FpVar<Fr>> = bits1[0..8*LEAF_SIZE].iter().map(|a| FpVar::from(a.clone())).collect();
+    let mut bits2 : Vec<FpVar<Fr>> = bits2[0..8*LEAF_SIZE].iter().map(|a| FpVar::from(a.clone())).collect();
+    bits.append(&mut bits2);
+    let bits_after = apply_mask(&bits, &mask);
+    let (before_bits, size, num) = check_mask(&mask);
+    let before_bytes = witness(cs, before_bytes);
+    (before_bytes.clone() * FpVar::constant(Fr::from(8))).enforce_equal(&before_bits).unwrap();
+    enforce_i32(before_bytes.clone());
+    idx.enforce_equal(&(before_bytes + mach.mem.mem_index.clone() * FpVar::constant(Fr::from(LEAF_SIZE as u64)))).unwrap();
+    // check the size
+    let (ty, needed_size) = match opcode {
+        0x36 => { // i32.store
+            (0, 32)
+        }
+        0x37 => { // i64.store
+            (1, 64)
+        }
+        0x38 => { // f32.store
+            (2, 32)
+        }
+        0x39 => { // f64.store
+            (3, 64)
+        }
+        0x3a => { // i32.store8
+            (0, 8)
+        }
+        0x3b => { // i32.store16
+            (0, 16)
+        }
+        0x3c => { // i64.store8
+            (1, 8)
+        }
+        0x3d => { // i64.store16
+            (1, 16)
+        }
+        0x3e => { // i64.store32
+            (1, 32)
+        }
+        _ => panic!("Bad opcode")
+    };
+    size.enforce_equal(&FpVar::constant(Fr::from(needed_size as u32))).unwrap();
+    let write_val = inspect_value(params, &popped_write, &stack_hint1, ty);
+    // this needs to be trancated
+    let write_val = truncate(&write_val, needed_size);
+    write_val.enforce_equal(&num).unwrap();
+    mach.functionPc = mach.functionPc.clone() + FpVar::constant(Fr::from(1));
+    mach
+}
+
+#[derive(Debug,Clone)]
+pub struct InstStoreHint {
+    val1: ValueHint,
+    val2: ValueHint,
+    mask: Vec<Fr>,
+    before_bytes: Fr,
+}
+
+struct InstStore {
+    opcode: u32,
+    val1: Value,
+    val2: Value,
+    mask: Vec<Fr>,
+    before_bytes: Fr,
+}
+
+impl InstStoreHint {
+    fn default() -> Self {
+        InstStoreHint { 
+            val1: ValueHint::default(),
+            val2: ValueHint::default(),
+            before_bytes: Fr::from(0),
+            mask: vec![],
+        }
+    }
+    fn convert(&self, cs: &ConstraintSystemRef<Fr>, opcode: u32) -> InstStore {
+        InstStore {
+            opcode,
+            val1: self.val1.convert(cs),
+            val2: self.val2.convert(cs),
+            before_bytes: self.before_bytes.clone(),
+            mask: self.mask.clone(),
+        }
+    }
+}
+
+impl InstCS for InstStore {
+    fn code(&self) -> u32 {
+        self.opcode
+    }
+    fn execute_internal(&self, cs: ConstraintSystemRef<Fr>, params: &Params, mach: &MachineWithStack) -> (MachineWithStack, MachineWithStack) {
+        let mut mach = mach.clone();
+        // push value to stack
+        mach.valueStack.push(hash_value(params, &self.val2));
+        mach.valueStack.push(hash_value(params, &self.val1));
+        let before = mach.clone();
+        let after = execute_store(&cs, params, &mach, self.opcode, &self.mask, &self.before_bytes, &self.val1, &self.val2);
+        (before, after)
+    }
+}
+
+// memory load
 
 pub fn execute_load(
     cs: &ConstraintSystemRef<Fr>,
@@ -846,7 +971,6 @@ impl InstCS for InstLoad {
         (before, after)
     }
 }
-
 
 // constant
 
