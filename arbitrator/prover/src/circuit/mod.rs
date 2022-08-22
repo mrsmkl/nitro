@@ -637,6 +637,7 @@ pub fn rotr_i32(a: &FpVar<Fr>, b: &FpVar<Fr>) -> FpVar<Fr> {
 
 //// Masks for memory
 
+// set bits from the mask
 pub fn apply_mask(a: &[FpVar<Fr>], mask: &[FpVar<Fr>]) -> Vec<FpVar<Fr>> {
     let mut res = vec![];
     for i in 0..mask.len() {
@@ -645,6 +646,15 @@ pub fn apply_mask(a: &[FpVar<Fr>], mask: &[FpVar<Fr>]) -> Vec<FpVar<Fr>> {
         res.push(choice)
     }
     res
+}
+
+// check that the mask matches 
+pub fn match_mask(a: &[FpVar<Fr>], mask: &[FpVar<Fr>]) {
+    let two = FpVar::constant(Fr::from(2));
+    for i in 0..mask.len() {
+        let eq2 = two.clone().is_eq(&mask[i]).unwrap();
+        a[i].is_eq(&mask[i]).unwrap().or(&eq2).unwrap().enforce_equal(&Boolean::constant(true)).unwrap();
+    }
 }
 
 // check that mask is correct
@@ -677,7 +687,108 @@ pub fn check_mask(mask: &[FpVar<Fr>]) -> (FpVar<Fr>, FpVar<Fr>, FpVar<Fr>) {
     (before, size, num)
 }
 
-////////////////////////////////////////////
+//////////////// Implementation of instructions
+
+// memory
+
+const LEAF_SIZE : usize = 30;
+
+pub fn execute_load(
+    cs: &ConstraintSystemRef<Fr>,
+    params: &Params,
+    mach: &MachineWithStack,
+    opcode: u32,
+    mask: &Vec<Fr>,
+    before_bytes: &Fr,
+) -> MachineWithStack {
+    let mut mach = mach.clone();
+    let popped = mach.valueStack.pop(); // TODO: looks like these should be inspected as values
+
+    let idx = popped + mach.inst.argumentData.clone();
+    let mask : Vec<FpVar<Fr>> = mask.iter().map(|a| witness(cs, a)).collect();
+    let bits1 = mach.mem.mem1.to_bits_le().unwrap();
+    let bits2 = mach.mem.mem2.to_bits_le().unwrap();
+    let mut bits : Vec<FpVar<Fr>> = bits1[0..8*LEAF_SIZE].iter().map(|a| FpVar::from(a.clone())).collect();
+    let mut bits2 : Vec<FpVar<Fr>> = bits2[0..8*LEAF_SIZE].iter().map(|a| FpVar::from(a.clone())).collect();
+    bits.append(&mut bits2);
+    match_mask(&bits, &mask);
+    let (before_bits, size, num) = check_mask(&mask);
+    let before_bytes = witness(cs, before_bytes);
+    (before_bytes.clone() * FpVar::constant(Fr::from(8))).enforce_equal(&before_bits).unwrap();
+    enforce_i32(before_bytes.clone());
+    idx.enforce_equal(&(before_bytes + mach.mem.mem_index.clone() * FpVar::constant(Fr::from(LEAF_SIZE as u64)))).unwrap();
+    // check the size
+    let ty = match opcode {
+        0x28 => { // i32.load
+            size.enforce_equal(&FpVar::constant(Fr::from(32))).unwrap();
+            0
+        }
+        0x29 => { // i64.load
+            size.enforce_equal(&FpVar::constant(Fr::from(64))).unwrap();
+            1
+        }
+        0x2a => { // f32.load
+            size.enforce_equal(&FpVar::constant(Fr::from(32))).unwrap();
+            2
+        }
+        0x2b => { // f64.load
+            size.enforce_equal(&FpVar::constant(Fr::from(64))).unwrap();
+            3
+        }
+        0x2c => { // i32.load8_s
+            size.enforce_equal(&FpVar::constant(Fr::from(8))).unwrap();
+            0
+        }
+        0x2d => { // i32.load8_u
+            size.enforce_equal(&FpVar::constant(Fr::from(8))).unwrap();
+            0
+        }
+        0x2e => { // i32.load16_s
+            size.enforce_equal(&FpVar::constant(Fr::from(16))).unwrap();
+            0
+        }
+        0x2f => { // i32.load16_u
+            size.enforce_equal(&FpVar::constant(Fr::from(16))).unwrap();
+            0
+        }
+        0x30 => { // i64.load8_s
+            size.enforce_equal(&FpVar::constant(Fr::from(8))).unwrap();
+            1
+        }
+        0x31 => { // i64.load8_u
+            size.enforce_equal(&FpVar::constant(Fr::from(8))).unwrap();
+            1
+        }
+        0x32 => { // i64.load16_s
+            size.enforce_equal(&FpVar::constant(Fr::from(16))).unwrap();
+            1
+        }
+        0x33 => { // i64.load16_u
+            size.enforce_equal(&FpVar::constant(Fr::from(16))).unwrap();
+            1
+        }
+        0x34 => { // i64.load16_s
+            size.enforce_equal(&FpVar::constant(Fr::from(32))).unwrap();
+            1
+        }
+        0x35 => { // i64.load16_u
+            size.enforce_equal(&FpVar::constant(Fr::from(32))).unwrap();
+            1
+        }
+        _ => panic!("Bad opcode")
+    };
+    // TODO: handle signed stuff
+    // put result to stack
+    let v = Value {
+        value: num,
+        ty: FpVar::constant(Fr::from(ty)),
+    };
+    mach.valueStack.push(hash_value(params, &v));
+    mach.functionPc = mach.functionPc.clone() + FpVar::constant(Fr::from(1));
+    mach
+}
+
+// constant
 
 #[derive(Debug,Clone)]
 pub struct InstConstHint {
