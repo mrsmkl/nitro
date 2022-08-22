@@ -464,12 +464,18 @@ pub fn check_memory(cs: ConstraintSystemRef<Fr>, mach: &mut MachineWithStack, pa
     mach.mole.moduleMemory = mem_root2_after;
 }
 
+pub fn memory_unchanged(mach: &MachineWithStack) {
+    mach.mem.mem1_after.enforce_equal(&mach.mem.mem1).unwrap();
+    mach.mem.mem2_after.enforce_equal(&mach.mem.mem2).unwrap();
+}
+
 /// Circuits for different instructions
 
 trait Inst {
     fn execute_internal(&self, params: &Params, mach: &MachineWithStack) -> (MachineWithStack, MachineWithStack);
     fn code(&self) -> u32;
     fn execute(&self, params: &Params, mach: &MachineWithStack) -> (MachineWithStack, MachineWithStack) {
+        memory_unchanged(mach);
         let (before, after) = self.execute_internal(params, mach);
         let after = check_instruction(&after, self.code());
         (before, after)
@@ -480,6 +486,7 @@ trait InstCS {
     fn execute_internal(&self, cs: ConstraintSystemRef<Fr>, params: &Params, mach: &MachineWithStack) -> (MachineWithStack, MachineWithStack);
     fn code(&self) -> u32;
     fn execute(&self, cs: ConstraintSystemRef<Fr>, params: &Params, mach: &MachineWithStack) -> (MachineWithStack, MachineWithStack) {
+        memory_unchanged(mach);
         let (before, after) = self.execute_internal(cs, params, mach);
         let after = check_instruction(&after, self.code());
         (before, after)
@@ -731,8 +738,16 @@ pub fn execute_store(
     let mut bits : Vec<FpVar<Fr>> = bits1[0..8*LEAF_SIZE].iter().map(|a| FpVar::from(a.clone())).collect();
     let mut bits2 : Vec<FpVar<Fr>> = bits2[0..8*LEAF_SIZE].iter().map(|a| FpVar::from(a.clone())).collect();
     bits.append(&mut bits2);
-    let bits_after = apply_mask(&bits, &mask);
+
+    let bits1_after = mach.mem.mem1_after.to_bits_le().unwrap();
+    let bits2_after = mach.mem.mem2_after.to_bits_le().unwrap();
+    let mut bits_after : Vec<FpVar<Fr>> = bits1_after[0..8*LEAF_SIZE].iter().map(|a| FpVar::from(a.clone())).collect();
+    let mut bits2_after : Vec<FpVar<Fr>> = bits2_after[0..8*LEAF_SIZE].iter().map(|a| FpVar::from(a.clone())).collect();
+    bits_after.append(&mut bits2_after);
+
+    apply_mask(&bits, &mask).enforce_equal(&bits_after).unwrap();
     let (before_bits, size, num) = check_mask(&mask);
+
     let before_bytes = witness(cs, before_bytes);
     (before_bytes.clone() * FpVar::constant(Fr::from(8))).enforce_equal(&before_bits).unwrap();
     enforce_i32(before_bytes.clone());
@@ -813,7 +828,7 @@ impl InstStoreHint {
     }
 }
 
-impl InstCS for InstStore {
+impl InstStore {
     fn code(&self) -> u32 {
         self.opcode
     }
@@ -824,6 +839,11 @@ impl InstCS for InstStore {
         mach.valueStack.push(hash_value(params, &self.val1));
         let before = mach.clone();
         let after = execute_store(&cs, params, &mach, self.opcode, &self.mask, &self.before_bytes, &self.val1, &self.val2);
+        (before, after)
+    }
+    fn execute(&self, cs: ConstraintSystemRef<Fr>, params: &Params, mach: &MachineWithStack) -> (MachineWithStack, MachineWithStack) {
+        let (before, after) = self.execute_internal(cs, params, mach);
+        let after = check_instruction(&after, self.code());
         (before, after)
     }
 }
