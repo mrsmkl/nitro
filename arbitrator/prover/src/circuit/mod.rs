@@ -378,6 +378,12 @@ pub struct MachineWithStack {
     mem: MemInfo
 }
 
+impl MachineWithStack {
+    fn validate(&mut self, b: Boolean<Fr>) {
+        self.valid = self.valid.and(&b).unwrap();
+    }
+}
+
 pub fn hash_machine_with_stack(params: &Params, mach: &MachineWithStack) -> FpVar<Fr> {
     hash_machine(params, &elim_stack(params, mach))
 }
@@ -421,7 +427,7 @@ fn intro_stack(mach: &Machine, inst: &Instruction, mole: &Module, mem: &MemInfo)
 pub fn check_instruction(mach: &MachineWithStack, expected: u32) -> MachineWithStack {
     let expected = FpVar::constant(Fr::from(expected));
     let mut mach = mach.clone();
-    mach.valid = mach.valid.and(&mach.inst.opcode.is_eq(&expected).unwrap()).unwrap();
+    mach.validate(mach.inst.opcode.is_eq(&expected).unwrap());
     mach
 }
 
@@ -433,9 +439,9 @@ pub fn change_module(cs: ConstraintSystemRef<Fr>, params: &Params, mach: &Machin
     let (old_mole_root, old_mole_idx) = make_path(cs.clone(), 16, params, old_mole_hash, mod_proof);
 
     let mut mach = mach.clone();
-    mach.valid = mach.valid.and(&old_mole_idx.is_eq(&mach.moduleIdx).unwrap()).unwrap();
-    mach.valid = mach.valid.and(&mole_idx.is_eq(&mach.moduleIdx).unwrap()).unwrap();
-    mach.valid = mach.valid.and(&old_mole_root.is_eq(&mach.modulesRoot).unwrap()).unwrap();
+    mach.validate(old_mole_idx.is_eq(&mach.moduleIdx).unwrap());
+    mach.validate(mole_idx.is_eq(&mach.moduleIdx).unwrap());
+    mach.validate(old_mole_root.is_eq(&mach.modulesRoot).unwrap());
     mach.modulesRoot = mole_root;
     mach
 }
@@ -783,7 +789,7 @@ pub fn execute_store(
         }
         _ => panic!("Bad opcode")
     };
-    size.enforce_equal(&FpVar::constant(Fr::from(needed_size as u32))).unwrap();
+    mach.validate(size.is_eq(&FpVar::constant(Fr::from(needed_size as u32))).unwrap());
     let write_val = inspect_value(params, &popped_write, &stack_hint1, ty);
     // this needs to be trancated
     let write_val = truncate(&write_val, needed_size);
@@ -876,65 +882,52 @@ pub fn execute_load(
     enforce_i32(before_bytes.clone());
     idx.enforce_equal(&(before_bytes + mach.mem.mem_index.clone() * FpVar::constant(Fr::from(LEAF_SIZE as u64)))).unwrap();
     // check the size
-    let ty = match opcode {
+    let (ty, needed_size) = match opcode {
         0x28 => { // i32.load
-            size.enforce_equal(&FpVar::constant(Fr::from(32))).unwrap();
-            0
+            (0, 32)
         }
         0x29 => { // i64.load
-            size.enforce_equal(&FpVar::constant(Fr::from(64))).unwrap();
-            1
+            (1, 64)
         }
         0x2a => { // f32.load
-            size.enforce_equal(&FpVar::constant(Fr::from(32))).unwrap();
-            2
+            (2, 32)
         }
         0x2b => { // f64.load
-            size.enforce_equal(&FpVar::constant(Fr::from(64))).unwrap();
-            3
+            (3, 64)
         }
         0x2c => { // i32.load8_s
-            size.enforce_equal(&FpVar::constant(Fr::from(8))).unwrap();
-            0
+            (0, 8)
         }
         0x2d => { // i32.load8_u
-            size.enforce_equal(&FpVar::constant(Fr::from(8))).unwrap();
-            0
+            (0, 8)
         }
         0x2e => { // i32.load16_s
-            size.enforce_equal(&FpVar::constant(Fr::from(16))).unwrap();
-            0
+            (0, 16)
         }
         0x2f => { // i32.load16_u
-            size.enforce_equal(&FpVar::constant(Fr::from(16))).unwrap();
-            0
+            (0, 16)
         }
         0x30 => { // i64.load8_s
-            size.enforce_equal(&FpVar::constant(Fr::from(8))).unwrap();
-            1
+            (1, 8)
         }
         0x31 => { // i64.load8_u
-            size.enforce_equal(&FpVar::constant(Fr::from(8))).unwrap();
-            1
+            (1, 8)
         }
         0x32 => { // i64.load16_s
-            size.enforce_equal(&FpVar::constant(Fr::from(16))).unwrap();
-            1
+            (1, 16)
         }
         0x33 => { // i64.load16_u
-            size.enforce_equal(&FpVar::constant(Fr::from(16))).unwrap();
-            1
+            (1, 16)
         }
         0x34 => { // i64.load16_s
-            size.enforce_equal(&FpVar::constant(Fr::from(32))).unwrap();
-            1
+            (1, 32)
         }
         0x35 => { // i64.load16_u
-            size.enforce_equal(&FpVar::constant(Fr::from(32))).unwrap();
-            1
+            (1, 32)
         }
         _ => panic!("Bad opcode")
     };
+    mach.validate(size.is_eq(&FpVar::constant(Fr::from(needed_size))).unwrap());
     // TODO: handle signed stuff
     // put result to stack
     let v = Value {
