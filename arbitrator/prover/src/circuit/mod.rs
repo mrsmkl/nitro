@@ -948,9 +948,9 @@ pub fn execute_load(
 
 #[derive(Debug,Clone)]
 pub struct InstLoadHint {
-    val: ValueHint,
-    mask: Vec<Fr>,
-    before_bytes: Fr, // val + instdata = mem_index*LEAF_SIZE + before_bytes
+    pub val: ValueHint,
+    pub mask: Vec<Fr>,
+    pub before_bytes: Fr, // val + instdata = mem_index*LEAF_SIZE + before_bytes
 }
 
 struct InstLoad {

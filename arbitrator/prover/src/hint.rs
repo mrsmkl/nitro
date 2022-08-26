@@ -142,7 +142,7 @@ impl PoseidonMachine {
             Opcode::MemoryLoad { ty: ArbValueType::I32, bytes: 4, signed: false } => {
                 println!("module hash {}", mole.hash());
                 let mut mach = self.clone();
-                let orig_hint = mach.hint();
+                let _orig_hint = mach.hint();
                 let idx = inst.argument_data; // extra offset here
                 let v = mach.value_stack.pop().unwrap();
                 let machine_hint = mach.hint();
@@ -153,6 +153,24 @@ impl PoseidonMachine {
                 let byte_index = v.assume_u32() as u64 + idx;
                 let mem_index = byte_index / LEAF_SIZE;
                 let before_bytes = byte_index - mem_index*LEAF_SIZE;
+                let mem = mole.memory.hint(mem_index as usize, &mole.memory);
+                let mut mask : Vec<Fr> = vec![];
+                for i in 0..2*LEAF_SIZE {
+                    if i < before_bytes || i > (before_bytes+4) {
+                        for _j in 0..8 {
+                            mask.push(Fr::from(2))
+                        }
+                    } else {
+                        match mole.memory.get_u8(byte_index+i-before_bytes) {
+                            None => panic!("invalid memory access"),
+                            Some(b) => {
+                                for j in 0..8 {
+                                    mask.push(Fr::from((b >> j) & 1))
+                                }
+                            }
+                        }
+                    }
+                }
                 let proof = InstLoadHint {
                     val: v.hint(), // index from stack
                     mask,
@@ -163,7 +181,7 @@ impl PoseidonMachine {
                     proof: InstProof::Load32(proof),
                     inst: inst.hint(),
                     mole: mole.hint(),
-                    mem: mole.memory.hint(mem_index as usize, &mole.memory),
+                    mem,
                     mod_proof,
                     func_proof,
                     inst_proof,
