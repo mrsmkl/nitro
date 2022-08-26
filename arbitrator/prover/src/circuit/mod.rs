@@ -324,13 +324,13 @@ pub struct MemInfo {
 
 #[derive(Debug, Clone)]
 pub struct MemoryHint {
-    mem1: Fr,
-    mem1_after: Fr,
-    mem2: Fr,
-    mem2_after: Fr,
-    mem_index: Fr,
-    proof1: Proof,
-    proof2: Proof,
+    pub mem1: Fr,
+    pub mem1_after: Fr,
+    pub mem2: Fr,
+    pub mem2_after: Fr,
+    pub mem_index: Fr,
+    pub proof1: Proof,
+    pub proof2: Proof,
 }
 
 impl MemoryHint {
@@ -794,10 +794,10 @@ pub fn execute_store(
 
 #[derive(Debug,Clone)]
 pub struct InstStoreHint {
-    val1: ValueHint,
-    val2: ValueHint,
+    val1: ValueHint, // index
+    val2: ValueHint, // value
     mask: Vec<Fr>,
-    before_bytes: Fr,
+    before_bytes: Fr, // LEAF_SIZE*mem_index + before_bytes = val1
 }
 
 struct InstStore {
@@ -950,7 +950,7 @@ pub fn execute_load(
 pub struct InstLoadHint {
     val: ValueHint,
     mask: Vec<Fr>,
-    before_bytes: Fr,
+    before_bytes: Fr, // val + instdata = mem_index*LEAF_SIZE + before_bytes
 }
 
 struct InstLoad {
@@ -1951,6 +1951,7 @@ pub enum InstProof {
     GlobalSet(InstGlobalSetHint),
     InitFrame(InstInitFrameHint),
     AddI32(InstBinaryHint),
+    Load32(InstLoadHint),
 }
 
 struct InstWitness {
@@ -1972,6 +1973,7 @@ struct InstWitness {
     global_set: InstGlobalSet,
     init_frame: InstInitFrame,
     add_i32: InstBinary,
+    load32: InstLoad,
 }
 
 fn proof_to_witness(proof: InstProof, cs: ConstraintSystemRef<Fr>) -> InstWitness {
@@ -1993,6 +1995,7 @@ fn proof_to_witness(proof: InstProof, cs: ConstraintSystemRef<Fr>) -> InstWitnes
     let mut hint_global_set = InstGlobalSetHint::default();
     let mut hint_init_frame = InstInitFrameHint::default();
     let mut hint_add_i32 = InstBinaryHint::default();
+    let mut hint_load32 = InstLoadHint::default();
     use crate::circuit::InstProof::*;
     match proof {
         ConstI32(hint) => {
@@ -2049,6 +2052,9 @@ fn proof_to_witness(proof: InstProof, cs: ConstraintSystemRef<Fr>) -> InstWitnes
         AddI32(hint) => {
             hint_add_i32 = hint;
         }
+        Load32(hint) => {
+            hint_load32 = hint;
+        }
     };
     InstWitness {
         const_i32: hint_const_i32.convert(&cs, 0),
@@ -2069,6 +2075,7 @@ fn proof_to_witness(proof: InstProof, cs: ConstraintSystemRef<Fr>) -> InstWitnes
         global_set: hint_global_set.convert(&cs),
         init_frame: hint_init_frame.convert(&cs),
         add_i32: hint_add_i32.convert(&cs, 0x6a),
+        load32: hint_load32.convert(&cs, 0x36),
     }
 }
 
@@ -2144,6 +2151,7 @@ fn make_proof(
     let global_set = witness.global_set.execute(cs.clone(), params, &base_machine);
     let init_frame = witness.init_frame.execute(params, &base_machine);
     let add_i32 = witness.init_frame.execute(params, &base_machine);
+    let load32 = witness.init_frame.execute(params, &base_machine);
 
     select_machine(params, vec![
         const_i32,
@@ -2164,6 +2172,7 @@ fn make_proof(
         global_set,
         init_frame,
         add_i32,
+        load32,
     ])
 }
 

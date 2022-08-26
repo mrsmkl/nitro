@@ -3,6 +3,7 @@ use crate::circuit::{
     StackFrameHint,
     InstLocalSetHint,
     MemoryHint,
+    InstLoadHint,
 };
 use crate::machine::{PoseidonMachine,GenModule,StackFrame};
 use ark_bn254::Fr;
@@ -12,8 +13,13 @@ use crate::machine::{gen_hash_stack_frame_stack, gen_hash_pc_stack, gen_hash_val
 use crate::merkle::{GenMerkle,MerkleType};
 use crate::circuit::hash::Proof;
 use crate::wavm::Opcode;
+use crate::value::{ArbValueType};
 use crate::circuit::hash::Params;
 use crate::circuit::Witness;
+use crate::memory::GenMemory;
+use crate::circuit::hash::vec_to_fr;
+
+const LEAF_SIZE : u64 = 30;
 
 fn make_proof(loc: usize, proof: Vec<FrHash>) -> Proof {
     let mut selectors = vec![];
@@ -133,6 +139,36 @@ impl PoseidonMachine {
                     inst_proof,
                 })
             }
+            Opcode::MemoryLoad { ty: ArbValueType::I32, bytes: 4, signed: false } => {
+                println!("module hash {}", mole.hash());
+                let mut mach = self.clone();
+                let orig_hint = mach.hint();
+                let idx = inst.argument_data; // extra offset here
+                let v = mach.value_stack.pop().unwrap();
+                let machine_hint = mach.hint();
+                println!("local get idx {}", idx);
+                println!("value stack {}", machine_hint.valueStack);
+                println!("internal stack {}", machine_hint.internalStack);
+                println!("block stack {}", machine_hint.blockStack);
+                let byte_index = v.assume_u32() as u64 + idx;
+                let mem_index = byte_index / LEAF_SIZE;
+                let before_bytes = byte_index - mem_index*LEAF_SIZE;
+                let proof = InstLoadHint {
+                    val: v.hint(), // index from stack
+                    mask,
+                    before_bytes: Fr::from(before_bytes),
+                };
+                Some(Witness {
+                    machine_hint,
+                    proof: InstProof::Load32(proof),
+                    inst: inst.hint(),
+                    mole: mole.hint(),
+                    mem: mole.memory.hint(mem_index as usize, &mole.memory),
+                    mod_proof,
+                    func_proof,
+                    inst_proof,
+                })
+            }
             Opcode::LocalSet => {
                 let mut mach = self.clone();
                 let orig_hint = mach.hint();
@@ -163,13 +199,36 @@ impl PoseidonMachine {
                     proof: InstProof::LocalSet(proof),
                     inst: inst.hint(),
                     mole: mole.hint(),
-                    mem: MemoryHint::default(),
+                    mem: mole.memory.hint(0, &mole.memory),
                     mod_proof,
                     func_proof,
                     inst_proof,
                 })
             }
             _ => None,
+        }
+    }
+}
+
+type PoseidonMemory = GenMemory<FrHash, Poseidon>;
+
+impl PoseidonMemory {
+    fn hint(&self, mem_index: usize, after: &Self) -> MemoryHint {
+        let tree = self.merkelize();
+        let proof1 = make_proof(mem_index, tree.prove_gen(mem_index).unwrap());
+        let proof2 = make_proof(mem_index+1, tree.prove_gen(mem_index+1).unwrap());
+        let mem1 = self.get_leaf_data(mem_index);
+        let mem2 = self.get_leaf_data(mem_index+1);
+        let mem1_after = after.get_leaf_data(mem_index);
+        let mem2_after = after.get_leaf_data(mem_index+1);
+        MemoryHint {
+            mem_index: Fr::from(mem_index as u64),
+            proof1,
+            proof2,
+            mem1: vec_to_fr(&mem1.to_vec()),
+            mem1_after: vec_to_fr(&mem1_after.to_vec()),
+            mem2: vec_to_fr(&mem2.to_vec()),
+            mem2_after: vec_to_fr(&mem2_after.to_vec()),
         }
     }
 }
