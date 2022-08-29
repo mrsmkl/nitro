@@ -377,6 +377,7 @@ pub struct MachineWithStack {
     valid: Boolean<Fr>,
     inst: Instruction, // Must be the correct instruction
     mole: Module,
+    mod_proof: Proof,
 
     // Instruction might need two memory cells. it's assumed that the updates are done to the first one first, and only then the second one
     mem: MemInfo
@@ -408,7 +409,7 @@ pub fn elim_stack(params : &Params, mach: &MachineWithStack) -> Machine {
     }
 }
 
-fn intro_stack(mach: &Machine, inst: &Instruction, mole: &Module, mem: &MemInfo) -> MachineWithStack {
+fn intro_stack(mach: &Machine, inst: &Instruction, mole: &Module, mod_proof: &Proof, mem: &MemInfo) -> MachineWithStack {
     MachineWithStack {
         valueStack : Stack::based(mach.valueStack.clone()),
         internalStack : Stack::based(mach.internalStack.clone()),
@@ -420,6 +421,7 @@ fn intro_stack(mach: &Machine, inst: &Instruction, mole: &Module, mem: &MemInfo)
         functionIdx : mach.functionIdx.clone(),
         functionPc : mach.functionPc.clone(),
         modulesRoot : mach.modulesRoot.clone(),
+        mod_proof: mod_proof.clone(),
 
         valid: Boolean::constant(true),
         inst: inst.clone(),
@@ -450,6 +452,19 @@ pub fn change_module(cs: ConstraintSystemRef<Fr>, params: &Params, mach: &Machin
     mach
 }
 
+pub fn change_module_mut(cs: ConstraintSystemRef<Fr>, params: &Params, mach: &mut MachineWithStack, old_mole: &Module, mod_proof: &Proof) {
+    let mole_hash = hash_module(params, &mach.mole);
+    let (mole_root, mole_idx) = make_path(cs.clone(), 16, params, mole_hash, mod_proof);
+
+    let old_mole_hash = hash_module(params, &old_mole);
+    let (old_mole_root, old_mole_idx) = make_path(cs.clone(), 16, params, old_mole_hash, mod_proof);
+
+    mach.validate(old_mole_idx.is_eq(&mach.moduleIdx).unwrap());
+    mach.validate(mole_idx.is_eq(&mach.moduleIdx).unwrap());
+    mach.validate(old_mole_root.is_eq(&mach.modulesRoot).unwrap());
+    mach.modulesRoot = mole_root;
+}
+
 pub fn check_memory(cs: ConstraintSystemRef<Fr>, mach: &mut MachineWithStack, params: &Params, proof1: &Proof, proof2: &Proof) {
     let mem = mach.mem.clone();
     let elem1_hash = poseidon_gadget(params, vec![mem.mem1.clone()]);
@@ -462,19 +477,25 @@ pub fn check_memory(cs: ConstraintSystemRef<Fr>, mach: &mut MachineWithStack, pa
     let (mem_root2, mem_idx2) = make_path(cs.clone(), 32, params, elem2_hash, proof2);
     let (mem_root2_after, mem_idx2_) = make_path(cs.clone(), 32, params, elem2_after_hash, proof2);
 
-    mem_idx1.enforce_equal(&mem.mem_index).unwrap();
-    mem_idx1_.enforce_equal(&mem.mem_index).unwrap();
     let mem_index_plus = mem.mem_index.clone() + FpVar::constant(Fr::from(1));
-    mem_idx2.enforce_equal(&mem_index_plus).unwrap();
-    mem_idx2_.enforce_equal(&mem_index_plus).unwrap();
-
-    mem_root1_after.enforce_equal(&mem_root1).unwrap();
-    mem_root2_after.enforce_equal(&mem_root2).unwrap();
-
     let mem_hash_before = poseidon_gadget(params, vec![mem.mem_size.clone(), mem_root1.clone()]);
     let mem_hash_after = poseidon_gadget(params, vec![mem.mem_size.clone(), mem_root1_after.clone()]);
-    mem_hash_before.enforce_equal(&mach.mole.moduleMemory).unwrap();
-    mach.mole.moduleMemory = mem_root2_after;
+    let empty_memory = mem.mem_size.is_eq(&FpVar::constant(Fr::from(0))).unwrap();
+
+    let mut valid = mem_idx1.is_eq(&mem.mem_index).unwrap();
+    valid = valid.and(&mem_idx1_.is_eq(&mem.mem_index).unwrap()).unwrap();
+    valid = valid.and(&mem_idx2.is_eq(&mem_index_plus).unwrap()).unwrap();
+    valid = valid.and(&mem_idx2_.is_eq(&mem_index_plus).unwrap()).unwrap();
+    valid = valid.and(&mem_root1_after.is_eq(&mem_root1).unwrap()).unwrap();
+    valid = valid.and(&mem_root2_after.is_eq(&mem_root2).unwrap()).unwrap();
+
+    valid = valid.and(&mem_hash_before.is_eq(&mach.mole.moduleMemory).unwrap()).unwrap();
+
+    mach.validate(valid.or(&empty_memory).unwrap());
+    // TODO: change module
+    let old_mole = mach.mole.clone();
+    mach.mole.moduleMemory = empty_memory.select(&mach.mole.moduleMemory, &mem_hash_after).unwrap();
+    change_module_mut(cs.clone(), params, mach, &old_mole, &mach.mod_proof.clone());
 }
 
 pub fn memory_unchanged(mach: &MachineWithStack) {
@@ -2126,7 +2147,7 @@ fn make_proof(
         func_proof,
     );
 
-    let mut base_machine = intro_stack(&base_machine, &inst, &mole, &mem);
+    let mut base_machine = intro_stack(&base_machine, &inst, &mole, mod_proof, &mem);
     check_memory(cs.clone(), &mut base_machine, params, &mem_hint.proof1, &mem_hint.proof2);
 
     let witness = proof_to_witness(proof, cs.clone());

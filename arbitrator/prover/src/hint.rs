@@ -233,6 +233,7 @@ type PoseidonMemory = GenMemory<FrHash, Poseidon>;
 impl PoseidonMemory {
     fn hint(&self, mem_index: usize, after: &Self) -> MemoryHint {
         let tree = self.merkelize();
+        println!("mem size {}", self.size());
         if mem_index >= self.size() as usize {
             return MemoryHint::default()
         }
