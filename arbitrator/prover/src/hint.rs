@@ -79,7 +79,7 @@ impl PoseidonMachine {
                     proof: InstProof::Drop(proof),
                     inst: inst.hint(),
                     mole: mole.hint(),
-                    mem: MemoryHint::default(),
+                    mem: mole.memory.hint(0, &mole.memory),
                     mod_proof,
                     func_proof,
                     inst_proof,
@@ -98,7 +98,7 @@ impl PoseidonMachine {
                     proof: InstProof::ConstI32(InstConstHint {}),
                     inst: inst.hint(),
                     mole: mole.hint(),
-                    mem: MemoryHint::default(),
+                    mem: mole.memory.hint(0, &mole.memory),
                     mod_proof,
                     func_proof,
                     inst_proof,
@@ -133,7 +133,7 @@ impl PoseidonMachine {
                     proof: InstProof::LocalGet(proof),
                     inst: inst.hint(),
                     mole: mole.hint(),
-                    mem: MemoryHint::default(),
+                    mem: mole.memory.hint(0, &mole.memory),
                     mod_proof,
                     func_proof,
                     inst_proof,
@@ -233,6 +233,9 @@ type PoseidonMemory = GenMemory<FrHash, Poseidon>;
 impl PoseidonMemory {
     fn hint(&self, mem_index: usize, after: &Self) -> MemoryHint {
         let tree = self.merkelize();
+        if mem_index >= self.size() as usize {
+            return MemoryHint::default()
+        }
         let proof1 = make_proof(mem_index, tree.prove_gen(mem_index).unwrap());
         let proof2 = make_proof(mem_index+1, tree.prove_gen(mem_index+1).unwrap());
         let mem1 = self.get_leaf_data(mem_index);
@@ -241,6 +244,7 @@ impl PoseidonMemory {
         let mem2_after = after.get_leaf_data(mem_index+1);
         MemoryHint {
             mem_index: Fr::from(mem_index as u64),
+            mem_size: Fr::from(self.size()),
             proof1,
             proof2,
             mem1: vec_to_fr(&mem1.to_vec()),

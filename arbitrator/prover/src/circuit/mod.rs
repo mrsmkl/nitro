@@ -320,6 +320,7 @@ pub struct MemInfo {
     mem2: FpVar<Fr>,
     mem2_after: FpVar<Fr>,
     mem_index: FpVar<Fr>,
+    mem_size: FpVar<Fr>,
 }
 
 #[derive(Debug, Clone)]
@@ -329,6 +330,7 @@ pub struct MemoryHint {
     pub mem2: Fr,
     pub mem2_after: Fr,
     pub mem_index: Fr,
+    pub mem_size: Fr,
     pub proof1: Proof,
     pub proof2: Proof,
 }
@@ -341,6 +343,7 @@ impl MemoryHint {
             mem2: Fr::from(0),
             mem2_after: Fr::from(0),
             mem_index: Fr::from(0),
+            mem_size: Fr::from(0),
             proof1: Proof::default(),
             proof2: Proof::default(),
         }
@@ -352,6 +355,7 @@ impl MemoryHint {
             mem2: witness(&cs, &self.mem2),
             mem2_after: witness(&cs, &self.mem2_after),
             mem_index: witness(&cs, &self.mem_index),
+            mem_size: witness(&cs, &self.mem_size),
         }
     }
 }
@@ -464,9 +468,12 @@ pub fn check_memory(cs: ConstraintSystemRef<Fr>, mach: &mut MachineWithStack, pa
     mem_idx2.enforce_equal(&mem_index_plus).unwrap();
     mem_idx2_.enforce_equal(&mem_index_plus).unwrap();
 
-    mem_root1.enforce_equal(&mach.mole.moduleMemory).unwrap();
-    mem_root1_after.enforce_equal(&mem_root2).unwrap();
+    mem_root1_after.enforce_equal(&mem_root1).unwrap();
+    mem_root2_after.enforce_equal(&mem_root2).unwrap();
 
+    let mem_hash_before = poseidon_gadget(params, vec![mem.mem_size.clone(), mem_root1.clone()]);
+    let mem_hash_after = poseidon_gadget(params, vec![mem.mem_size.clone(), mem_root1_after.clone()]);
+    mem_hash_before.enforce_equal(&mach.mole.moduleMemory).unwrap();
     mach.mole.moduleMemory = mem_root2_after;
 }
 
@@ -2349,10 +2356,12 @@ pub fn test_many(w: Vec<FullWitness>) {
     println!("Setting up circuit");
     let (pk, vk) = InnerSNARK::setup(circuit.clone(), &mut rng).unwrap();
     println!("verifier key: {:?}", vk);
+    /*
     let mut output = std::fs::File::create("test.sol").unwrap();
     write!(output, "{}", process_template(vk.clone())).unwrap();
-    // for i in 0..w.len() {
-    for i in 0..1 {
+    */
+    for i in 0..w.len() {
+    // for i in 0..1 {
         let circuit = w[i].clone();
         println!("Testing prove");
         let start = Instant::now();
@@ -2360,6 +2369,7 @@ pub fn test_many(w: Vec<FullWitness>) {
         let elapsed = start.elapsed();
         println!("proving took {} ms", elapsed.as_millis());
         println!("verify: {}", InnerSNARK::verify(&vk, &circuit.inputs(), &proof).unwrap());
+/*
         println!("let a = [0x{}n, 0x{}n]", proof.a.x.into_repr(), proof.a.y.into_repr());
         println!("let b = [[0x{}n, 0x{}n], [0x{}n, 0x{}n]]", proof.b.x.c1.into_repr(), proof.b.x.c0.into_repr(), proof.b.y.c1.into_repr(), proof.b.y.c0.into_repr());
         println!("let c = [0x{}n, 0x{}n]", proof.c.x.into_repr(), proof.c.y.into_repr());
@@ -2367,6 +2377,7 @@ pub fn test_many(w: Vec<FullWitness>) {
         for elem in circuit.inputs().iter() {
             println!("0x{}n", elem.into_repr())
         }
+*/
     }
 }
 
